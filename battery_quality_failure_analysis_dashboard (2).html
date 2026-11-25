@@ -1,0 +1,3446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MOOVING QC Enterprise — RBAC Battery Quality & Failure Analytics Portal</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Interactive Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- SheetJS (xlsx) for Bulk Excel & CSV Import/Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans, Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    h1, h2, h3, .font-display {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Toggle Switch Styling */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #4f46e5;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #4f46e5;
+    }
+
+    /* Print Styling for Executive Reports, Matrix & Individual Charts */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      .card-shadow {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+      }
+      body.print-target-active .printable-section {
+        display: none !important;
+      }
+      body.print-target-active .printable-section.print-selected {
+        display: block !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      canvas {
+        max-height: 300px !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- Toast Notification Stack -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 no-print"></div>
+
+  <!-- ===========================================================================
+       GATEKEEPER: LOGIN SCREEN (SHOWN BEFORE ENTERING PORTAL)
+       =========================================================================== -->
+  <div id="loginGateScreen" class="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Subtle Ambient Background Gradients -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 relative z-10 text-white">
+      <!-- Brand Header -->
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-extrabold tracking-tight">MOOVING <span class="text-emerald-400">QC</span></h1>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">RBAC PORTAL</span>
+          </div>
+          <p class="text-xs text-slate-400">Battery Quality & OEM Failure Intelligence</p>
+        </div>
+      </div>
+
+      <!-- Firebase Cloud Sync Pill on Login -->
+      <div class="mb-5 px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+        <span class="text-slate-400">Cloud Database (<code class="text-slate-200">product-ca806</code>):</span>
+        <span id="loginFirebaseBadge" class="inline-flex items-center gap-1.5 font-bold text-amber-400">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          Connecting...
+        </span>
+      </div>
+
+      <!-- Sign-In Form -->
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginIdentifier" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            Admin / User ID or Email
+          </label>
+          <input
+            type="text"
+            id="loginIdentifier"
+            required
+            autocomplete="username"
+            placeholder="admin@mooving.in or user@mooving.in"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+          />
+        </div>
+
+        <div>
+          <label for="loginPassword" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            Password
+          </label>
+          <input
+            type="password"
+            id="loginPassword"
+            required
+            autocomplete="current-password"
+            placeholder="••••••••"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+          />
+        </div>
+
+        <div id="loginErrorBox" class="hidden p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs font-semibold text-rose-300"></div>
+
+        <button
+          type="submit"
+          class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition active:scale-[0.99]"
+        >
+          Sign In to Portal →
+        </button>
+      </form>
+
+      <!-- Instant 1-Click Role Switcher / Quick Access -->
+      <div class="mt-6 pt-5 border-t border-slate-800">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center mb-3">Quick Role Access (Default Credentials)</p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onclick="quickDemoLogin('admin@mooving.in', 'admin123')"
+            class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-left transition group"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-indigo-400 group-hover:text-indigo-300">Master Admin</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">FULL</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono mt-1 truncate">admin@mooving.in</p>
+          </button>
+
+          <button
+            type="button"
+            onclick="quickDemoLogin('user@mooving.in', 'user123')"
+            class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-left transition group"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-emerald-400 group-hover:text-emerald-300">Viewer User</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">VIEW</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono mt-1 truncate">user@mooving.in</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       AUTHENTICATED PORTAL SHELL (HIDDEN UNTIL LOGIN)
+       =========================================================================== -->
+  <div id="portalAppShell" class="hidden min-h-screen flex-col">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-slate-950 text-white border-b border-slate-800 sticky top-0 z-30 no-print">
+      <div class="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Upper Row: Brand + User Profile + Global Actions -->
+        <div class="h-16 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center shadow-lg">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="text-base sm:text-lg font-extrabold tracking-tight">MOOVING <span class="text-emerald-400">QC</span></h1>
+                <!-- Live Firebase Status Badge -->
+                <button onclick="openFirebaseGuideModal()" id="firebaseStatusBadge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition">
+                  <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span id="firebaseStatusText">Connecting...</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 hidden md:block">Inverted (INC) • Livguard (ML) • Trontek (TK) • Live RBAC Analytics</p>
+            </div>
+          </div>
+
+          <!-- Right Controls: Export, Share, Print & Logged-in User Profile -->
+          <div class="flex items-center gap-2">
+            <button id="headerShareBtn" onclick="openShareSummaryModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span class="hidden sm:inline">Share</span>
+            </button>
+
+            <button id="headerExportBtn" onclick="exportFullExcel()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span class="hidden sm:inline">Export Excel</span>
+            </button>
+
+            <button id="headerPrintBtn" onclick="printFullDashboard()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Print Current Report">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+            </button>
+
+            <!-- Divider -->
+            <div class="h-6 w-px bg-slate-800 mx-1"></div>
+
+            <!-- Logged-In User Badge -->
+            <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
+              <div class="text-right hidden sm:block">
+                <p id="currentUserNameDisplay" class="text-xs font-bold text-white leading-tight">Admin</p>
+                <p id="currentUserEmailDisplay" class="text-[10px] text-slate-400 font-mono leading-tight">admin@mooving.in</p>
+              </div>
+              <span id="currentUserRoleBadge" class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                ADMIN
+              </span>
+              <button onclick="logoutUser()" title="Logout" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower Row: Dedicated Multi-Page Workspace Tabs -->
+        <nav class="flex items-center gap-1.5 overflow-x-auto pb-2.5 pt-1 text-xs sm:text-sm" id="workspaceNavTabs">
+          <button type="button" onclick="switchWorkspaceTab('dashboard')" id="navTab_dashboard" class="px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span>Executive & 3-Month Matrix</span>
+          </button>
+
+          <button type="button" onclick="switchWorkspaceTab('analytics')" id="navTab_analytics" class="px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+            </svg>
+            <span>Deep Analytics & Charts</span>
+          </button>
+
+          <button type="button" onclick="switchWorkspaceTab('logs')" id="navTab_logs" class="px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            <span>Master Battery Logs</span>
+          </button>
+
+          <button type="button" onclick="switchWorkspaceTab('entry')" id="navTab_entry" class="px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Data Entry & Bulk Import</span>
+          </button>
+
+          <button type="button" onclick="switchWorkspaceTab('admin')" id="navTab_admin" class="px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>Admin Control Center</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- FIRESTORE OFFLINE FALLBACK BANNER (Shown ONLY if Firestore rules aren't enabled yet) -->
+    <div id="firestoreSetupBanner" class="hidden bg-amber-50 border-b border-amber-300 px-4 py-2 text-xs text-amber-950 no-print">
+      <div class="max-w-[1520px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded bg-amber-200 font-extrabold text-[10px] uppercase">Offline Cache Mode</span>
+          <span>Firestore database (<code class="font-bold">product-ca806</code>) is waiting for rules in Firebase Console. Data is safely saved locally.</span>
+        </div>
+        <button onclick="openFirebaseGuideModal()" class="px-3 py-1 rounded-lg bg-amber-900 text-white font-bold text-xs hover:bg-amber-800 whitespace-nowrap self-start sm:self-auto">
+          Setup Firestore Rules →
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-[1520px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- Print-Only Executive Header -->
+      <div class="hidden print-only border-b-2 border-slate-900 pb-3 mb-4">
+        <div class="flex justify-between items-end">
+          <div>
+            <h1 class="text-xl font-extrabold text-slate-900">MOOVING — Battery Quality & OEM Failure Report</h1>
+            <p class="text-xs text-slate-600" id="printHeaderMeta">Scope: All OEMs</p>
+          </div>
+          <p class="text-xs text-slate-500">Printed: <span id="printDateStamp"></span></p>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           SHARED DEEP MULTI-DIMENSIONAL FILTER BAR (FOR DASHBOARD, ANALYTICS & LOGS)
+           ========================================================================= -->
+      <section id="globalDeepFilterSection" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3.5 no-print">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <!-- Left: OEM Make Pills -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mr-1">OEM Make:</span>
+            <button type="button" onclick="setGlobalOemFilter('ALL')" id="oemPill_ALL" class="px-3 py-1.5 rounded-xl text-xs font-bold transition">
+              All OEMs
+            </button>
+            <button type="button" onclick="setGlobalOemFilter('Inverted')" id="oemPill_Inverted" class="px-3 py-1.5 rounded-xl text-xs font-bold transition">
+              Inverted (INC)
+            </button>
+            <button type="button" onclick="setGlobalOemFilter('Livguard')" id="oemPill_Livguard" class="px-3 py-1.5 rounded-xl text-xs font-bold transition">
+              Livguard (ML)
+            </button>
+            <button type="button" onclick="setGlobalOemFilter('Trontek')" id="oemPill_Trontek" class="px-3 py-1.5 rounded-xl text-xs font-bold transition">
+              Trontek (TK)
+            </button>
+          </div>
+
+          <!-- Right: Granular Timeframe Mode Switcher -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mr-1">Timeframe:</span>
+            <div class="inline-flex flex-wrap p-1 rounded-xl bg-slate-100 border border-slate-200 gap-0.5">
+              <button type="button" onclick="setReportMode('3month')" id="tab_3month" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">3-Month</button>
+              <button type="button" onclick="setReportMode('monthly')" id="tab_monthly" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">Monthly</button>
+              <button type="button" onclick="setReportMode('weekly')" id="tab_weekly" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">Weekly</button>
+              <button type="button" onclick="setReportMode('daily')" id="tab_daily" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">Daily</button>
+              <button type="button" onclick="setReportMode('custom')" id="tab_custom" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">Custom Range</button>
+              <button type="button" onclick="setReportMode('all')" id="tab_all" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">All Time</button>
+            </div>
+            <div id="periodSubFilterWrapper" class="flex items-center gap-2"></div>
+          </div>
+        </div>
+
+        <!-- Secondary Deep Filters Row: Search + Issue + Dynamic Custom Column Filters -->
+        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2.5" id="deepSecondaryFiltersRow">
+          <div class="relative flex-1 min-w-[200px] max-w-xs">
+            <input
+              type="text"
+              id="globalSearchInput"
+              oninput="renderActiveWorkspace()"
+              placeholder="Search Battery Sr. No., POC, Remarks..."
+              class="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          <select id="globalIssueFilter" onchange="renderActiveWorkspace()" class="px-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Issue Categories</option>
+          </select>
+
+          <!-- Dynamic Custom Dropdown Column Filters Inject Here -->
+          <div id="dynamicCustomFiltersSlot" class="flex flex-wrap items-center gap-2"></div>
+
+          <button type="button" onclick="resetAllFilters()" class="ml-auto text-xs font-bold text-indigo-600 hover:text-indigo-800 px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition">
+            Reset Filters
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================================================
+           VIEW 1: EXECUTIVE & 3-MONTH MATRIX DASHBOARD
+           ========================================================================= -->
+      <div id="view_dashboard" class="space-y-6">
+        <!-- Executive KPI Cards Strip -->
+        <section id="kpiCardsSection" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 printable-section">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Reported Units</p>
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700" id="kpiOemTag">All OEMs</span>
+            </div>
+            <p id="kpiTotalUnits" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
+            <p id="kpiPeriodHint" class="text-xs text-slate-500 mt-1">In active report window</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Critical Top Issue</p>
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            </div>
+            <p id="kpiTopIssue" class="text-sm sm:text-base font-extrabold text-slate-900 mt-2.5 truncate" title="">—</p>
+            <p id="kpiTopIssuePct" class="text-xs font-bold text-rose-600 mt-1">0% of issues</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">OEM Make Breakdown</p>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            </div>
+            <div class="mt-2 space-y-1 text-xs font-semibold" id="kpiOemBreakdownList"></div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Avg Resolution TAT</p>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            </div>
+            <p id="kpiAvgTat" class="text-3xl font-extrabold text-emerald-600 mt-2">—</p>
+            <p id="kpiDistinctIssues" class="text-xs text-slate-500 mt-1">0 active issue types tracked</p>
+          </div>
+        </section>
+
+        <!-- Exact Screenshot 3-Month Matrix ("Work Scop | Mooving | OEM") -->
+        <section id="oemMatrixSection" class="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden card-shadow printable-section">
+          <div class="px-4 sm:px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+            <div>
+              <h3 class="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <span>OEM & 3-Month Issue Summary Matrix</span>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-yellow-100 text-yellow-900 border border-yellow-300">Work Scope Tracker</span>
+              </h3>
+              <p class="text-xs text-slate-500" id="matrixEditHintText">Click any Tat or Poc cell to update inline.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center gap-1.5">
+                <label for="matrixEndMonthSelect" class="text-xs font-bold text-slate-600">3-Month Ending:</label>
+                <select id="matrixEndMonthSelect" onchange="onMatrixWindowChange(this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-800"></select>
+              </div>
+
+              <button id="matrixExportBtn" onclick="exportMatrixCSV()" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition">
+                <span>Export Matrix</span>
+              </button>
+
+              <button id="matrixPrintBtn" onclick="printSpecificSection('oemMatrixSection')" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition">
+                <span>Print Matrix</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-sm" id="executiveMatrixTable">
+              <thead>
+                <tr class="border-b border-slate-400 text-center font-extrabold text-slate-950 text-xs sm:text-sm">
+                  <th class="py-2 px-3 bg-white border-r border-slate-400">Work Scop</th>
+                  <th colspan="5" class="py-2 px-3 bg-[#ffff00] border-r border-slate-400 tracking-wide">Mooving</th>
+                  <th colspan="3" class="py-2 px-3 bg-[#ffff00]" id="matrixTopOemBanner">All OEMs</th>
+                </tr>
+                <tr class="border-b border-slate-400 text-xs font-extrabold text-slate-950">
+                  <th class="py-2.5 px-3 bg-[#fce4d6] border-r border-slate-400 text-left whitespace-nowrap">OEM Make</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-left min-w-[240px]">Type of issues</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center w-16" id="matrixColM1">Sep</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center w-16" id="matrixColM2">Oct</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center w-16" id="matrixColM3">Nov</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center whitespace-nowrap">Sum of 3 month</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center whitespace-nowrap">Issues %</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] border-r border-slate-400 text-center w-24">Tat</th>
+                  <th class="py-2.5 px-3 bg-[#fff2cc] text-center w-28">Poc</th>
+                </tr>
+              </thead>
+              <tbody id="executiveMatrixBody" class="divide-y divide-slate-300 text-xs sm:text-sm"></tbody>
+              <tfoot id="executiveMatrixFooter" class="border-t-2 border-slate-500 bg-slate-100 font-extrabold text-xs sm:text-sm text-slate-950"></tfoot>
+            </table>
+          </div>
+        </section>
+
+        <!-- Quick Preview Charts on Executive Dashboard -->
+        <section id="dashboardQuickChartsSection" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow flex flex-col printable-section" id="dashChartCard1">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-sm sm:text-base font-extrabold text-slate-900">Top Failure Issues (Active Filter)</h3>
+                <p class="text-xs text-slate-500">Horizontal distribution by failure category</p>
+              </div>
+              <div class="flex items-center gap-1.5 no-print">
+                <button onclick="downloadChartPNG('dashIssueBarChart', 'Issue_Distribution')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">PNG</button>
+                <button onclick="printSpecificSection('dashChartCard1')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold">Print</button>
+              </div>
+            </div>
+            <div class="relative flex-1 min-h-[260px]">
+              <canvas id="dashIssueBarChart"></canvas>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow flex flex-col printable-section" id="dashChartCard2">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-sm sm:text-base font-extrabold text-slate-900">OEM Comparison (3-Month)</h3>
+                <p class="text-xs text-slate-500">Inverted vs Livguard vs Trontek</p>
+              </div>
+              <div class="flex items-center gap-1.5 no-print">
+                <button onclick="downloadChartPNG('dashOemBarChart', 'OEM_Comparison')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">PNG</button>
+                <button onclick="printSpecificSection('dashChartCard2')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold">Print</button>
+              </div>
+            </div>
+            <div class="relative flex-1 min-h-[260px]">
+              <canvas id="dashOemBarChart"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 2: DEEP ANALYTICS & CHARTS STUDIO
+           ========================================================================= -->
+      <div id="view_analytics" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <!-- Chart A: Weekly / Monthly Trend Line -->
+          <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow flex flex-col printable-section" id="deepChartTrendCard">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900">Weekly & Monthly Failure Velocity Trend</h3>
+                <p class="text-xs text-slate-500">Time-series progression across OEMs</p>
+              </div>
+              <div class="flex items-center gap-2 no-print">
+                <select id="trendGranularitySelect" onchange="renderDeepAnalytics()" class="px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-white">
+                  <option value="weekly">Group by Week</option>
+                  <option value="monthly">Group by Month</option>
+                  <option value="daily">Group by Date</option>
+                </select>
+                <button onclick="downloadChartPNG('deepTrendLineChart', 'Failure_Velocity_Trend')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">PNG</button>
+                <button onclick="printSpecificSection('deepChartTrendCard')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-xs font-semibold">Print</button>
+              </div>
+            </div>
+            <div class="relative flex-1 min-h-[290px]">
+              <canvas id="deepTrendLineChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart B: OEM Share Doughnut -->
+          <div class="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow flex flex-col printable-section" id="deepChartDonutCard">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900">OEM Share Split</h3>
+                <p class="text-xs text-slate-500">Proportional defect contribution</p>
+              </div>
+              <div class="flex items-center gap-1.5 no-print">
+                <button onclick="downloadChartPNG('deepOemDonutChart', 'OEM_Share_Donut')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">PNG</button>
+                <button onclick="printSpecificSection('deepChartDonutCard')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-xs font-semibold">Print</button>
+              </div>
+            </div>
+            <div class="relative flex-1 min-h-[290px]">
+              <canvas id="deepOemDonutChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart C: Issue x OEM Stacked Breakdown -->
+          <div class="lg:col-span-12 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm card-shadow flex flex-col printable-section" id="deepChartStackedCard">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900">Root-Cause Issue × OEM Cross-Tabulation</h3>
+                <p class="text-xs text-slate-500">Compare which OEM is experiencing which specific hardware/BMS failure</p>
+              </div>
+              <div class="flex items-center gap-1.5 no-print">
+                <button onclick="downloadChartPNG('deepStackedIssueChart', 'Issue_By_OEM_Matrix')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">PNG</button>
+                <button onclick="printSpecificSection('deepChartStackedCard')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-xs font-semibold">Print</button>
+              </div>
+            </div>
+            <div class="relative flex-1 min-h-[300px]">
+              <canvas id="deepStackedIssueChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deep Insights Table: OEM-Wise & Weekly/Monthly Summary -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden card-shadow">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <h3 class="text-base font-extrabold text-slate-900">Deep OEM Performance & Defect Density Summary</h3>
+            <p class="text-xs text-slate-500">Consolidated breakdown across Inverted, Livguard, and Trontek for the active filter</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead class="bg-slate-100 border-b border-slate-200 font-extrabold text-slate-700 uppercase text-[11px]">
+                <tr>
+                  <th class="py-3 px-4">OEM Make</th>
+                  <th class="py-3 px-4">Sr. Prefix</th>
+                  <th class="py-3 px-4 text-center">Total Issues</th>
+                  <th class="py-3 px-4 text-center">% of Total</th>
+                  <th class="py-3 px-4">Primary Failure Mode</th>
+                  <th class="py-3 px-4 text-center">Avg TAT</th>
+                </tr>
+              </thead>
+              <tbody id="deepInsightsTbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 3: DETAILED MASTER BATTERY LOGS
+           ========================================================================= -->
+      <div id="view_logs" class="hidden space-y-4">
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden card-shadow printable-section" id="masterLogsCard">
+          <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900">Master Battery Sr. No. Failure Register</h3>
+              <p class="text-xs text-slate-500" id="masterLogsSubtitle">All built-in & custom columns • Live synced with Firebase</p>
+            </div>
+            <div class="flex items-center gap-2 no-print">
+              <span id="masterLogsCountBadge" class="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">0 Records</span>
+              <button id="logsQuickAddBtn" onclick="switchWorkspaceTab('entry')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">
+                + New Entry
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-[560px]">
+            <table class="w-full text-left border-collapse">
+              <thead id="masterLogsThead" class="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-600"></thead>
+              <tbody id="masterLogsTbody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
+            </table>
+          </div>
+
+          <div id="masterLogsEmptyState" class="hidden py-14 px-4 text-center">
+            <p class="text-sm font-bold text-slate-800">No Battery Records Match Current Filters</p>
+            <p class="text-xs text-slate-500 mt-1">Adjust your timeframe/OEM filters or add new battery entries.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 4: DEDICATED DATA ENTRY & BULK IMPORT WORKSTATION
+           ========================================================================= -->
+      <div id="view_entry" class="hidden space-y-6">
+        <!-- Single Battery Entry Card -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-5 border-b border-slate-100">
+            <div>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                New Battery Quality / Failure Entry
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Prefix Auto-OEM: <strong class="text-amber-700">INC</strong> = Inverted &nbsp;|&nbsp;
+                <strong class="text-emerald-700">ML</strong> = Livguard &nbsp;|&nbsp;
+                <strong class="text-blue-700">TK</strong> = Trontek &nbsp;•&nbsp; Date & Month auto-fill automatically
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap" id="entryAdminShortcuts">
+              <button type="button" onclick="switchWorkspaceTab('admin')" class="text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+                + Add / Edit Columns & Dropdowns
+              </button>
+            </div>
+          </div>
+
+          <form id="batteryEntryForm" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+              <!-- Battery Sr. No. -->
+              <div class="lg:col-span-3">
+                <label for="batterySrNo" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center justify-between">
+                  <span>Battery Sr. No. <span class="text-rose-500">*</span></span>
+                  <span id="liveOemDetectionTag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">Auto OEM</span>
+                </label>
+                <input
+                  type="text"
+                  id="batterySrNo"
+                  required
+                  placeholder="INC261101 / ML261102 / TK261103"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-mono font-bold text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                />
+              </div>
+
+              <!-- OEM Make -->
+              <div class="lg:col-span-2">
+                <label for="oemMakeSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  OEM Make (Auto)
+                </label>
+                <select id="oemMakeSelect" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="Inverted">Inverted (INC)</option>
+                  <option value="Livguard">Livguard (ML)</option>
+                  <option value="Trontek">Trontek (TK)</option>
+                  <option value="Other">Other OEM</option>
+                </select>
+              </div>
+
+              <!-- Date (Auto-Today + Manual Change) -->
+              <div class="lg:col-span-2">
+                <label for="entryDate" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center justify-between">
+                  <span>Date <span class="text-rose-500">*</span></span>
+                  <button type="button" onclick="resetDateToToday()" class="text-[11px] font-semibold text-indigo-600 hover:underline normal-case">Today</button>
+                </label>
+                <input type="date" id="entryDate" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+
+              <!-- Auto Month -->
+              <div class="lg:col-span-2">
+                <label for="entryMonthDisplay" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Month (Auto)
+                </label>
+                <input type="text" id="entryMonthDisplay" readonly class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700 cursor-not-allowed" />
+              </div>
+
+              <!-- Issue Category Dropdown -->
+              <div class="lg:col-span-3">
+                <label for="issueCategory" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center justify-between">
+                  <span>Type of Issue <span class="text-rose-500">*</span></span>
+                  <button type="button" id="inlineManageIssueBtn" onclick="openIssueManagerModal()" class="text-[11px] font-bold text-indigo-600 hover:underline normal-case">
+                    + Add / Edit
+                  </button>
+                </label>
+                <select id="issueCategory" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+              </div>
+
+              <!-- TAT -->
+              <div class="lg:col-span-2">
+                <label for="entryTat" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">TAT (Days)</label>
+                <input type="text" id="entryTat" placeholder="e.g. 2 Days" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm" />
+              </div>
+
+              <!-- POC -->
+              <div class="lg:col-span-2">
+                <label for="entryPoc" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">POC (Owner)</label>
+                <input type="text" id="entryPoc" placeholder="e.g. Amit Sharma" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm" />
+              </div>
+
+              <!-- Remarks -->
+              <div class="sm:col-span-2 lg:col-span-8">
+                <label for="entryRemarks" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Remarks / Observation</label>
+                <input type="text" id="entryRemarks" placeholder="Detailed technician observation..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm" />
+              </div>
+            </div>
+
+            <!-- Dynamic Admin-Created Custom Columns Container -->
+            <div id="dynamicEntryCustomFields" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-100 empty:hidden"></div>
+
+            <div class="pt-2 flex flex-wrap items-center justify-between gap-3">
+              <span class="text-xs text-slate-500">All entries sync immediately to Firebase Firestore (<code class="text-slate-700">product-ca806</code>).</span>
+              <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold text-sm shadow-md flex items-center gap-2 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Save Battery Entry</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Bulk Excel / CSV Import Section -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900">Bulk Import from Excel / CSV</h3>
+              <p class="text-xs text-slate-500">Upload an <code>.xlsx</code> / <code>.csv</code> file or paste rows directly from Excel</p>
+            </div>
+            <button type="button" onclick="downloadSampleTemplate()" class="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition self-start sm:self-auto">
+              Download Sample Excel Template
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- File Upload Dropzone -->
+            <label class="flex flex-col items-center justify-center h-36 border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl bg-slate-50 hover:bg-indigo-50/30 cursor-pointer transition p-4 text-center">
+              <svg class="w-8 h-8 text-indigo-600 mb-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p class="text-xs sm:text-sm font-bold text-slate-800">Click to Upload Excel (.xlsx, .xls) or CSV</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Supports standard & custom column headers automatically</p>
+              <input id="bulkFileInput" type="file" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleBulkFileUpload(event)" />
+            </label>
+
+            <!-- Copy-Paste Box -->
+            <div class="flex flex-col gap-2">
+              <textarea
+                id="bulkPasteTextarea"
+                rows="4"
+                placeholder="Or paste rows from Excel (Battery Sr No | Date | Issue | TAT | POC):&#10;INC2611501	2026-11-25	BMS CAN Port/Communication/Parameter issue	2 Days	Amit"
+                class="w-full flex-1 p-3 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              ></textarea>
+              <div class="flex justify-end">
+                <button type="button" onclick="parsePastedText()" class="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition">
+                  Preview Pasted Rows
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bulk Preview Box -->
+          <div id="bulkPreviewSection" class="hidden pt-3 border-t border-slate-200 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-indigo-700" id="bulkPreviewCountLabel">0 rows ready</h4>
+              <div class="flex items-center gap-4">
+                <label class="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                  <input type="checkbox" id="bulkReplaceExisting" class="rounded border-slate-300 text-indigo-600" />
+                  <span>Replace existing logs</span>
+                </label>
+                <button type="button" id="confirmBulkImportBtn" onclick="confirmBulkImport()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition">
+                  Confirm & Upload to Firebase
+                </button>
+              </div>
+            </div>
+            <div class="overflow-x-auto max-h-56 border border-slate-200 rounded-xl">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-100 sticky top-0 font-bold text-slate-700 border-b border-slate-200">
+                  <tr>
+                    <th class="py-2 px-3">#</th>
+                    <th class="py-2 px-3">Battery Sr. No.</th>
+                    <th class="py-2 px-3">Auto OEM</th>
+                    <th class="py-2 px-3">Date</th>
+                    <th class="py-2 px-3">Month</th>
+                    <th class="py-2 px-3">Issue</th>
+                    <th class="py-2 px-3">TAT / POC</th>
+                  </tr>
+                </thead>
+                <tbody id="bulkPreviewTbody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 5: ADMIN CONTROL CENTER (USERS, PERMISSIONS & DYNAMIC COLUMNS)
+           ========================================================================= -->
+      <div id="view_admin" class="hidden space-y-6">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+          <!-- PANEL A: USER & ADMIN MANAGEMENT (CREATE / PROMOTE / DELETE) -->
+          <section class="xl:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5">
+            <div class="border-b border-slate-100 pb-3">
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900">User & Admin Account Management</h2>
+              <p class="text-xs text-slate-500">Create new Users or Admins, promote/demote roles, or remove access</p>
+            </div>
+
+            <!-- Add New User / Admin Form -->
+            <form id="createUserForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-end">
+              <div class="lg:col-span-3">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Full Name *</label>
+                <input type="text" id="newUserName" required placeholder="e.g. Rahul Verma" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm" />
+              </div>
+              <div class="lg:col-span-3">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Email / Login ID *</label>
+                <input type="text" id="newUserEmail" required placeholder="rahul@mooving.in" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm" />
+              </div>
+              <div class="lg:col-span-2">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Password *</label>
+                <input type="text" id="newUserPassword" required placeholder="pass123" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-mono" />
+              </div>
+              <div class="lg:col-span-2">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Role *</label>
+                <select id="newUserRole" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold">
+                  <option value="user">User (Viewer)</option>
+                  <option value="admin">Admin (Full)</option>
+                </select>
+              </div>
+              <div class="lg:col-span-2">
+                <button type="submit" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition">
+                  + Create
+                </button>
+              </div>
+            </form>
+
+            <!-- Registered Users Table -->
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead class="bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2.5 px-3.5">Name</th>
+                    <th class="py-2.5 px-3.5">Login ID / Email</th>
+                    <th class="py-2.5 px-3.5">Password</th>
+                    <th class="py-2.5 px-3.5">Role</th>
+                    <th class="py-2.5 px-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsersTbody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- PANEL B: WHAT "USER" ROLE CAN SEE (GRANULAR VISIBILITY PERMISSIONS) -->
+          <section class="xl:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+            <div class="border-b border-slate-100 pb-3">
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900">User Visibility & Access Controls</h2>
+              <p class="text-xs text-slate-500">Control exactly which sections, columns & actions regular <strong>Users</strong> can see</p>
+            </div>
+
+            <div class="space-y-2.5 text-xs sm:text-sm" id="userPermissionsTogglesList">
+              <!-- Toggles rendered dynamically -->
+            </div>
+
+            <!-- OEM Scope Restriction for Users -->
+            <div class="pt-2 border-t border-slate-100">
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1.5">Allowed OEM Visibility for Users</label>
+              <select id="permUserAllowedOem" onchange="saveUserPermissionsFromUI()" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-800">
+                <option value="ALL">All OEMs (Inverted, Livguard, Trontek)</option>
+                <option value="Inverted">Inverted (INC) Only</option>
+                <option value="Livguard">Livguard (ML) Only</option>
+                <option value="Trontek">Trontek (TK) Only</option>
+              </select>
+            </div>
+
+            <!-- Per-Column Visibility for Users -->
+            <div class="pt-2 border-t border-slate-100">
+              <p class="text-xs font-bold uppercase text-slate-600 mb-2">Columns Visible to Users in Master Logs:</p>
+              <div id="userColumnVisibilityCheckboxes" class="grid grid-cols-2 gap-2 text-xs"></div>
+            </div>
+          </section>
+
+          <!-- PANEL C: DYNAMIC COLUMN SCHEMA MANAGER (ADD / EDIT / DELETE COLUMNS) -->
+          <section class="xl:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Dynamic Columns Manager</h2>
+                <p class="text-xs text-slate-500">Add new columns or edit/delete custom fields across Entry Form, Logs & Exports</p>
+              </div>
+            </div>
+
+            <!-- Add Custom Column Form -->
+            <form id="addCustomColumnForm" class="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 items-end">
+              <div class="sm:col-span-4">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Column Name *</label>
+                <input type="text" id="newColLabel" required placeholder="e.g. City / Hub or Status" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Field Type</label>
+                <select id="newColType" onchange="toggleNewColOptionsInput(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold">
+                  <option value="text">Text Input</option>
+                  <option value="dropdown">Dropdown Options</option>
+                  <option value="number">Number</option>
+                  <option value="date">Date</option>
+                </select>
+              </div>
+              <div class="sm:col-span-3" id="newColOptionsWrapper">
+                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Dropdown Options (comma)</label>
+                <input type="text" id="newColOptions" disabled placeholder="Open, Closed, Pending" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-xs sm:text-sm disabled:cursor-not-allowed" />
+              </div>
+              <div class="sm:col-span-2">
+                <button type="submit" class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition">
+                  + Add Col
+                </button>
+              </div>
+            </form>
+
+            <!-- Active Schema Columns List -->
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead class="bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2.5 px-3.5">Column Label</th>
+                    <th class="py-2.5 px-3.5">Type</th>
+                    <th class="py-2.5 px-3.5">Options / Scope</th>
+                    <th class="py-2.5 px-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminColumnsTbody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- PANEL D: ISSUE DROPDOWN CATEGORIES & FIREBASE CLOUD TOOLS -->
+          <section class="xl:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Issue Dropdown Options</h2>
+                <p class="text-xs text-slate-500">Add, rename, or remove failure categories</p>
+              </div>
+              <button onclick="openIssueManagerModal()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">
+                Manage List
+              </button>
+            </div>
+
+            <div id="adminQuickIssuePreview" class="max-h-48 overflow-y-auto space-y-1.5 pr-1"></div>
+
+            <!-- Firebase Cloud Maintenance -->
+            <div class="pt-3 border-t border-slate-200 space-y-2.5">
+              <p class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Firebase Cloud & Data Maintenance</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="syncAllStateToFirebase()" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition">
+                  ☁️ Sync All to Firebase
+                </button>
+                <button type="button" onclick="restoreSampleData()" class="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition">
+                  Restore Sample Dataset
+                </button>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ===========================================================================
+       MODAL 1: MANAGE ISSUE DROPDOWN CATEGORIES (ADD / EDIT / DELETE)
+       =========================================================================== -->
+  <div id="issueManagerModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="px-5 py-4 bg-slate-950 text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Manage Issue Dropdown Categories</h3>
+          <p class="text-xs text-slate-400">Add new issues, edit existing names, or delete</p>
+        </div>
+        <button onclick="closeIssueManagerModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-4 border-b border-slate-200 bg-slate-50">
+        <form id="addIssueCategoryForm" class="flex gap-2">
+          <input type="text" id="newIssueCategoryInput" required placeholder="Enter new battery issue type..." class="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition">+ Add</button>
+        </form>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-2 flex-1" id="issueCategoriesList"></div>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeIssueManagerModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-bold">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       MODAL 2: EDIT BATTERY LOG RECORD (ADMIN FULL ROW + CUSTOM COLUMNS EDIT)
+       =========================================================================== -->
+  <div id="editRecordModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-5 py-4 bg-slate-950 text-white flex items-center justify-between">
+        <h3 class="text-base font-bold">Edit Battery Log Entry</h3>
+        <button onclick="closeEditRecordModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="editRecordForm" class="p-5 space-y-4 overflow-y-auto">
+        <input type="hidden" id="editRecordId" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Battery Sr. No.</label>
+            <input type="text" id="editBatterySrNo" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-mono font-bold uppercase" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">OEM Make</label>
+            <select id="editOemMake" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold bg-white">
+              <option value="Inverted">Inverted</option>
+              <option value="Livguard">Livguard</option>
+              <option value="Trontek">Trontek</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Date</label>
+            <input type="date" id="editEntryDate" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Month (Auto)</label>
+            <input type="text" id="editEntryMonth" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Type of Issue</label>
+          <select id="editIssueCategory" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white"></select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">TAT</label>
+            <input type="text" id="editEntryTat" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">POC</label>
+            <input type="text" id="editEntryPoc" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Remarks</label>
+          <input type="text" id="editEntryRemarks" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+        </div>
+
+        <!-- Dynamic Custom Fields in Edit Modal -->
+        <div id="editModalCustomFields" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 empty:hidden"></div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeEditRecordModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       MODAL 3: EDIT CUSTOM COLUMN DEFINITION (ADMIN)
+       =========================================================================== -->
+  <div id="editColumnModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden">
+      <div class="px-5 py-4 bg-slate-950 text-white flex items-center justify-between">
+        <h3 class="text-base font-bold">Edit Custom Column</h3>
+        <button onclick="closeEditColumnModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="editColumnForm" class="p-5 space-y-4">
+        <input type="hidden" id="editColKey" />
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Column Label</label>
+          <input type="text" id="editColLabelInput" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Field Type</label>
+          <select id="editColTypeSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+            <option value="text">Text Input</option>
+            <option value="dropdown">Dropdown Options</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Dropdown Options (comma-separated)</label>
+          <input type="text" id="editColOptionsInput" placeholder="Option 1, Option 2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeEditColumnModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">Update Column</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       MODAL 4: SHAREABLE EXECUTIVE SUMMARY (WHATSAPP / EMAIL)
+       =========================================================================== -->
+  <div id="shareSummaryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden">
+      <div class="px-5 py-4 bg-slate-950 text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Share Executive Report Summary</h3>
+          <p class="text-xs text-slate-400">Formatted for WhatsApp, Teams & Email</p>
+        </div>
+        <button onclick="closeShareSummaryModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-3">
+        <textarea id="shareSummaryText" rows="12" readonly class="w-full p-3.5 rounded-xl border border-slate-300 bg-slate-50 font-mono text-xs text-slate-800 focus:outline-none"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="closeShareSummaryModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700">Close</button>
+          <button onclick="copySummaryText()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       MODAL 5: FIREBASE FIRESTORE STATUS & ALWAYS-FREE RULES GUIDE
+       =========================================================================== -->
+  <div id="firebaseGuideModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden">
+      <div class="px-5 py-4 bg-slate-950 text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Firebase Firestore Cloud Sync</h3>
+          <p class="text-xs text-slate-400">Project: <code class="text-emerald-400">product-ca806</code> (Spark Always-Free Plan)</p>
+        </div>
+        <button onclick="closeFirebaseGuideModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 text-xs sm:text-sm text-slate-700">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <span class="font-bold">Connection Status:</span>
+          <span id="modalConnectionStatusText" class="font-extrabold text-emerald-600">Checking...</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <p class="font-bold text-slate-900">Permanent Always-Free Firestore Security Rules:</p>
+          <p class="text-xs text-slate-600">In Firebase Console → <strong>Firestore Database → Rules</strong>, paste this and click <strong>Publish</strong>:</p>
+          <pre class="p-3 rounded-xl bg-slate-900 text-emerald-300 font-mono text-[11px] overflow-x-auto">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+        </div>
+
+        <div class="pt-2 flex justify-between items-center">
+          <button onclick="syncAllStateToFirebase(); closeFirebaseGuideModal();" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
+            ☁️ Sync All Data to Firebase Now
+          </button>
+          <button onclick="closeFirebaseGuideModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===========================================================================
+       FIREBASE MODULAR SDK + COMPLETE RBAC PORTAL & ANALYTICS ENGINE
+       =========================================================================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      deleteDoc,
+      onSnapshot,
+      writeBatch
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Your Firebase Project Configuration (product-ca806)
+    const firebaseConfig = {
+      apiKey: "AIzaSyACA5e-i38JX84bLpbjJYqudGpNbgM1K-8",
+      authDomain: "product-ca806.firebaseapp.com",
+      projectId: "product-ca806",
+      storageBucket: "product-ca806.firebasestorage.app",
+      messagingSenderId: "1009243819395",
+      appId: "1:1009243819395:web:025285277d977fe440bab6",
+      measurementId: "G-LPC283W84X"
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+
+    // Firestore Collections
+    const logsColRef = collection(db, "battery_logs");
+    const categoriesColRef = collection(db, "issue_categories");
+    const matrixMetaColRef = collection(db, "matrix_meta");
+    const usersColRef = collection(db, "portal_users");
+    const settingsDocRef = doc(db, "portal_settings", "rbac_config");
+
+    /**
+     * ============================================================================
+     * 1. DEFAULT SEED DATA (USERS, RBAC PERMISSIONS, COLUMNS, ISSUES & LOGS)
+     * ============================================================================
+     */
+    const LOCAL_KEYS = {
+      SESSION: 'mooving_rbac_session_v1',
+      USERS: 'mooving_rbac_users_v1',
+      RBAC_CONFIG: 'mooving_rbac_config_v1',
+      RECORDS: 'mooving_qc_battery_records_v4',
+      ISSUES: 'mooving_qc_issue_categories_v4',
+      MATRIX_META: 'mooving_qc_matrix_meta_v4'
+    };
+
+    const DEFAULT_USERS = [
+      { id: 'usr_admin_1', name: 'Master Admin', email: 'admin@mooving.in', password: 'admin123', role: 'admin' },
+      { id: 'usr_viewer_1', name: 'QC Viewer User', email: 'user@mooving.in', password: 'user123', role: 'user' }
+    ];
+
+    const BUILTIN_COLUMNS = [
+      { key: 'batterySrNo', label: 'Battery Sr. No.', type: 'text', builtin: true },
+      { key: 'oem', label: 'OEM Make', type: 'text', builtin: true },
+      { key: 'date', label: 'Date', type: 'date', builtin: true },
+      { key: 'month', label: 'Month', type: 'text', builtin: true },
+      { key: 'issue', label: 'Type of Issue', type: 'dropdown', builtin: true },
+      { key: 'tat', label: 'TAT', type: 'text', builtin: true },
+      { key: 'poc', label: 'POC', type: 'text', builtin: true },
+      { key: 'remarks', label: 'Remarks', type: 'text', builtin: true }
+    ];
+
+    const DEFAULT_CUSTOM_COLUMNS = [
+      { key: 'col_hub_city', label: 'Hub / City', type: 'dropdown', options: ['Gurugram', 'Delhi NCR', 'Bengaluru', 'Pune', 'Hyderabad'], builtin: false },
+      { key: 'col_case_status', label: 'Case Status', type: 'dropdown', options: ['Open', 'Under Repair', 'Resolved'], builtin: false }
+    ];
+
+    const DEFAULT_USER_PERMISSIONS = {
+      showKpiCards: true,
+      showMatrixTable: true,
+      showAnalyticsTab: true,
+      showLogsTab: true,
+      allowUserEntry: false,
+      allowUserExportPrint: true,
+      allowedOem: 'ALL',
+      hiddenColumnsForUser: [] // Array of column keys hidden from User role
+    };
+
+    const DEFAULT_ISSUE_CATEGORIES = [
+      'BMS CAN Port/Communication/Parameter issue',
+      'Cell Imbalance / Low Voltage',
+      'MOSFET / Charging Cut-off',
+      'Thermal Sensor / Over-Temperature',
+      'Connector / Harness Burn',
+      'SOC Jump / Calibration Drift',
+      'Deep Discharge Lock',
+      'Water Ingress / Physical Damage'
+    ];
+
+    function generateSeedRecords() {
+      const todayStr = getLocalDateString();
+      const samples = [
+        { sr: 'INC2609101', date: '2026-09-08', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Amit Sharma', remarks: 'CAN High intermittent drop', col_hub_city: 'Gurugram', col_case_status: 'Resolved' },
+        { sr: 'INC2609102', date: '2026-09-14', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Amit Sharma', remarks: 'Baud rate parameter reset', col_hub_city: 'Delhi NCR', col_case_status: 'Resolved' },
+        { sr: 'INC2609103', date: '2026-09-19', issue: 'Cell Imbalance / Low Voltage', tat: '3 Days', poc: 'Vikram Singh', remarks: 'Cell #4 delta > 160mV', col_hub_city: 'Bengaluru', col_case_status: 'Resolved' },
+        { sr: 'INC2609104', date: '2026-09-25', issue: 'Thermal Sensor / Over-Temperature', tat: '1 Day', poc: 'Rahul Verma', remarks: 'NTC2 loose harness', col_hub_city: 'Pune', col_case_status: 'Resolved' },
+        { sr: 'INC2610101', date: '2026-10-05', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Amit Sharma', remarks: 'CAN transceiver replaced', col_hub_city: 'Gurugram', col_case_status: 'Resolved' },
+        { sr: 'INC2610102', date: '2026-10-12', issue: 'MOSFET / Charging Cut-off', tat: '4 Days', poc: 'Vikram Singh', remarks: 'Charge FET gate driver fault', col_hub_city: 'Hyderabad', col_case_status: 'Resolved' },
+        { sr: 'INC2610103', date: '2026-10-21', issue: 'Cell Imbalance / Low Voltage', tat: '3 Days', poc: 'Vikram Singh', remarks: 'Pack balanced & cycled', col_hub_city: 'Gurugram', col_case_status: 'Resolved' },
+        { sr: 'INC2611101', date: '2026-11-18', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Amit Sharma', remarks: 'Firmware v3.2 flashed', col_hub_city: 'Delhi NCR', col_case_status: 'Under Repair' },
+        { sr: 'INC2611102', date: todayStr, issue: 'SOC Jump / Calibration Drift', tat: '1 Day', poc: 'Rahul Verma', remarks: 'Full charge calibration done', col_hub_city: 'Gurugram', col_case_status: 'Open' },
+
+        { sr: 'ML2609201', date: '2026-09-06', issue: 'Cell Imbalance / Low Voltage', tat: '3 Days', poc: 'Suresh Kumar', remarks: 'Series #8 undervoltage lock', col_hub_city: 'Bengaluru', col_case_status: 'Resolved' },
+        { sr: 'ML2609202', date: '2026-09-17', issue: 'Connector / Harness Burn', tat: '2 Days', poc: 'Deepak Nair', remarks: 'Chogori power pin pitted', col_hub_city: 'Pune', col_case_status: 'Resolved' },
+        { sr: 'ML2609203', date: '2026-09-28', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Suresh Kumar', remarks: '120 ohm termination missing', col_hub_city: 'Gurugram', col_case_status: 'Resolved' },
+        { sr: 'ML2610201', date: '2026-10-09', issue: 'Cell Imbalance / Low Voltage', tat: '3 Days', poc: 'Suresh Kumar', remarks: 'Cell group replacement', col_hub_city: 'Delhi NCR', col_case_status: 'Resolved' },
+        { sr: 'ML2610202', date: '2026-10-18', issue: 'Deep Discharge Lock', tat: '1 Day', poc: 'Deepak Nair', remarks: 'Wakeup charge applied', col_hub_city: 'Hyderabad', col_case_status: 'Resolved' },
+        { sr: 'ML2611201', date: todayStr, issue: 'Connector / Harness Burn', tat: '2 Days', poc: 'Deepak Nair', remarks: 'Updated harness batch fitted', col_hub_city: 'Gurugram', col_case_status: 'Open' },
+
+        { sr: 'TK2609301', date: '2026-09-11', issue: 'MOSFET / Charging Cut-off', tat: '3 Days', poc: 'Manoj Tiwari', remarks: 'Discharge FET short', col_hub_city: 'Delhi NCR', col_case_status: 'Resolved' },
+        { sr: 'TK2609302', date: '2026-09-22', issue: 'SOC Jump / Calibration Drift', tat: '2 Days', poc: 'Manoj Tiwari', remarks: 'Shunt calibration updated', col_hub_city: 'Pune', col_case_status: 'Resolved' },
+        { sr: 'TK2610301', date: '2026-10-14', issue: 'BMS CAN Port/Communication/Parameter issue', tat: '2 Days', poc: 'Manoj Tiwari', remarks: 'CAN cable shield grounded', col_hub_city: 'Bengaluru', col_case_status: 'Resolved' },
+        { sr: 'TK2610302', date: '2026-10-26', issue: 'Thermal Sensor / Over-Temperature', tat: '2 Days', poc: 'Karan Mehta', remarks: 'Busbar thermal pad fixed', col_hub_city: 'Gurugram', col_case_status: 'Resolved' },
+        { sr: 'TK2611301', date: todayStr, issue: 'MOSFET / Charging Cut-off', tat: '3 Days', poc: 'Manoj Tiwari', remarks: 'Under bench load test', col_hub_city: 'Delhi NCR', col_case_status: 'Under Repair' }
+      ];
+
+      return samples.map((s, idx) => ({
+        id: 'rec_' + (1732500000000 + idx),
+        batterySrNo: s.sr,
+        oem: detectOemFromSrNo(s.sr),
+        date: s.date,
+        month: formatMonthLabel(s.date),
+        issue: s.issue,
+        tat: s.tat,
+        poc: s.poc,
+        remarks: s.remarks,
+        col_hub_city: s.col_hub_city,
+        col_case_status: s.col_case_status
+      }));
+    }
+
+    /**
+     * ============================================================================
+     * 2. REACTIVE APPLICATION STORE & LOCAL CACHE
+     * ============================================================================
+     */
+    let store = {
+      firebaseConnected: false,
+      currentUser: null,
+      users: [],
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
+      customColumns: [...DEFAULT_CUSTOM_COLUMNS],
+      records: [],
+      categories: [],
+      matrixMeta: {}
+    };
+
+    let appState = {
+      activeTab: 'dashboard',
+      oemFilter: 'ALL',
+      reportMode: '3month', // '3month' | 'monthly' | 'weekly' | 'daily' | 'custom' | 'all'
+      matrixEndMonth: '2026-11',
+      selectedMonthKey: getMonthKey(getLocalDateString()),
+      selectedWeekStart: getWeekStartDate(getLocalDateString()),
+      selectedDayDate: getLocalDateString(),
+      customStartDate: '2026-09-01',
+      customEndDate: getLocalDateString(),
+      customColFilters: {},
+      pendingBulkRows: [],
+      charts: {
+        dashIssueBar: null,
+        dashOemBar: null,
+        deepTrendLine: null,
+        deepOemDonut: null,
+        deepStackedIssue: null
+      }
+    };
+
+    function loadLocalCache() {
+      try {
+        const u = localStorage.getItem(LOCAL_KEYS.USERS);
+        store.users = u ? JSON.parse(u) : [...DEFAULT_USERS];
+      } catch (e) { store.users = [...DEFAULT_USERS]; }
+
+      try {
+        const cfg = JSON.parse(localStorage.getItem(LOCAL_KEYS.RBAC_CONFIG) || '{}');
+        store.permissions = { ...DEFAULT_USER_PERMISSIONS, ...(cfg.permissions || {}) };
+        store.customColumns = Array.isArray(cfg.customColumns) ? cfg.customColumns : [...DEFAULT_CUSTOM_COLUMNS];
+      } catch (e) {
+        store.permissions = { ...DEFAULT_USER_PERMISSIONS };
+        store.customColumns = [...DEFAULT_CUSTOM_COLUMNS];
+      }
+
+      try {
+        const r = localStorage.getItem(LOCAL_KEYS.RECORDS);
+        store.records = r ? JSON.parse(r) : generateSeedRecords();
+      } catch (e) { store.records = generateSeedRecords(); }
+
+      try {
+        const c = localStorage.getItem(LOCAL_KEYS.ISSUES);
+        store.categories = c ? JSON.parse(c) : [...DEFAULT_ISSUE_CATEGORIES];
+      } catch (e) { store.categories = [...DEFAULT_ISSUE_CATEGORIES]; }
+
+      try {
+        store.matrixMeta = JSON.parse(localStorage.getItem(LOCAL_KEYS.MATRIX_META) || '{}');
+      } catch (e) { store.matrixMeta = {}; }
+
+      try {
+        const sess = localStorage.getItem(LOCAL_KEYS.SESSION);
+        if (sess) {
+          const parsed = JSON.parse(sess);
+          const validUser = store.users.find(x => x.email.toLowerCase() === parsed.email?.toLowerCase());
+          if (validUser) store.currentUser = validUser;
+        }
+      } catch (e) { store.currentUser = null; }
+    }
+
+    function saveLocalCache() {
+      localStorage.setItem(LOCAL_KEYS.USERS, JSON.stringify(store.users));
+      localStorage.setItem(LOCAL_KEYS.RBAC_CONFIG, JSON.stringify({
+        permissions: store.permissions,
+        customColumns: store.customColumns
+      }));
+      localStorage.setItem(LOCAL_KEYS.RECORDS, JSON.stringify(store.records));
+      localStorage.setItem(LOCAL_KEYS.ISSUES, JSON.stringify(store.categories));
+      localStorage.setItem(LOCAL_KEYS.MATRIX_META, JSON.stringify(store.matrixMeta));
+    }
+
+    /**
+     * ============================================================================
+     * 3. REAL-TIME FIRESTORE SYNCHRONIZATION
+     * ============================================================================
+     */
+    function setFirebaseConnectionStatus(connected, errCode = '') {
+      store.firebaseConnected = connected;
+      const loginBadge = document.getElementById('loginFirebaseBadge');
+      const badge = document.getElementById('firebaseStatusBadge');
+      const dot = document.getElementById('firebaseStatusDot');
+      const text = document.getElementById('firebaseStatusText');
+      const banner = document.getElementById('firestoreSetupBanner');
+      const modalStatus = document.getElementById('modalConnectionStatusText');
+
+      if (connected) {
+        if (loginBadge) {
+          loginBadge.className = 'inline-flex items-center gap-1.5 font-bold text-emerald-400';
+          loginBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Live Connected`;
+        }
+        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        text.textContent = 'Firebase Live';
+        banner.classList.add('hidden');
+        if (modalStatus) {
+          modalStatus.textContent = 'LIVE CONNECTED (product-ca806)';
+          modalStatus.className = 'font-extrabold text-emerald-600';
+        }
+      } else {
+        if (loginBadge) {
+          loginBadge.className = 'inline-flex items-center gap-1.5 font-bold text-amber-400';
+          loginBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Local Ready`;
+        }
+        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+        text.textContent = 'Offline Cache';
+        banner.classList.remove('hidden');
+        if (modalStatus) {
+          modalStatus.textContent = `Offline Cache (${errCode || 'Enable Firestore Rules'})`;
+          modalStatus.className = 'font-extrabold text-amber-600';
+        }
+      }
+    }
+
+    function startFirestoreListeners() {
+      // 1. Battery Logs
+      onSnapshot(logsColRef, (snap) => {
+        setFirebaseConnectionStatus(true);
+        if (!snap.empty) {
+          const list = [];
+          snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+          store.records = list;
+          saveLocalCache();
+          if (store.currentUser) {
+            syncMatrixMonthOptions();
+            buildPeriodSubSelector();
+            renderActiveWorkspace();
+          }
+        }
+      }, (err) => setFirebaseConnectionStatus(false, err.code));
+
+      // 2. Portal Users (Admins & Users)
+      onSnapshot(usersColRef, (snap) => {
+        if (!snap.empty) {
+          const list = [];
+          snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+          store.users = list;
+          saveLocalCache();
+          if (store.currentUser) {
+            const refreshedMe = store.users.find(u => u.id === store.currentUser.id);
+            if (refreshedMe) {
+              store.currentUser = refreshedMe;
+              applyRoleBasedAccessUI();
+            }
+            if (appState.activeTab === 'admin') renderAdminControlCenter();
+          }
+        }
+      }, () => {});
+
+      // 3. RBAC Permissions & Custom Columns Schema
+      onSnapshot(settingsDocRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.permissions) store.permissions = { ...DEFAULT_USER_PERMISSIONS, ...data.permissions };
+          if (Array.isArray(data.customColumns)) store.customColumns = data.customColumns;
+          saveLocalCache();
+          if (store.currentUser) {
+            buildDynamicEntryFields();
+            buildDynamicCustomFilters();
+            applyRoleBasedAccessUI();
+            renderActiveWorkspace();
+          }
+        }
+      }, () => {});
+
+      // 4. Issue Dropdown Categories
+      onSnapshot(categoriesColRef, (snap) => {
+        if (!snap.empty) {
+          const cats = [];
+          snap.forEach(d => cats.push({ id: d.id, ...d.data() }));
+          cats.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          store.categories = cats.map(c => c.name);
+          saveLocalCache();
+          refreshIssueDropdowns();
+          if (store.currentUser) renderActiveWorkspace();
+        }
+      }, () => {});
+
+      // 5. Matrix TAT / POC Metadata
+      onSnapshot(matrixMetaColRef, (snap) => {
+        const obj = {};
+        snap.forEach(d => obj[d.id] = d.data());
+        store.matrixMeta = obj;
+        saveLocalCache();
+        if (store.currentUser && appState.activeTab === 'dashboard') renderActiveWorkspace();
+      }, () => {});
+    }
+
+    async function syncAllStateToFirebase() {
+      try {
+        showToast('Syncing all records, users & schema to Firebase...', 'blue');
+        const batch = writeBatch(db);
+
+        store.records.forEach(r => batch.set(doc(db, "battery_logs", r.id), r));
+        store.users.forEach(u => batch.set(doc(db, "portal_users", u.id), u));
+        store.categories.forEach((name, idx) => batch.set(doc(db, "issue_categories", 'cat_' + idx), { name, order: idx }));
+        batch.set(settingsDocRef, {
+          permissions: store.permissions,
+          customColumns: store.customColumns
+        });
+
+        await batch.commit();
+        setFirebaseConnectionStatus(true);
+        showToast('All data synced to Firebase Firestore!', 'emerald');
+      } catch (err) {
+        setFirebaseConnectionStatus(false, err.code);
+        showToast('Enable Firestore Rules in Firebase Console first!', 'amber');
+        openFirebaseGuideModal();
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 4. AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC)
+     * ============================================================================
+     */
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      const idInput = document.getElementById('loginIdentifier').value.trim().toLowerCase();
+      const passInput = document.getElementById('loginPassword').value;
+      const errBox = document.getElementById('loginErrorBox');
+
+      const matched = store.users.find(u =>
+        (u.email.toLowerCase() === idInput || u.email.split('@')[0].toLowerCase() === idInput) &&
+        u.password === passInput
+      );
+
+      if (!matched) {
+        errBox.textContent = 'Invalid Login ID/Email or Password. Try admin@mooving.in / admin123 or user@mooving.in / user123.';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      errBox.classList.add('hidden');
+      store.currentUser = matched;
+      localStorage.setItem(LOCAL_KEYS.SESSION, JSON.stringify({ email: matched.email }));
+      enterAuthenticatedPortal();
+      showToast(`Welcome back, ${matched.name} (${matched.role.toUpperCase()})`, 'emerald');
+    }
+
+    function quickDemoLogin(email, password) {
+      document.getElementById('loginIdentifier').value = email;
+      document.getElementById('loginPassword').value = password;
+      document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+    }
+
+    function logoutUser() {
+      store.currentUser = null;
+      localStorage.removeItem(LOCAL_KEYS.SESSION);
+      document.getElementById('portalAppShell').classList.add('hidden');
+      document.getElementById('portalAppShell').classList.remove('flex');
+      document.getElementById('loginGateScreen').classList.remove('hidden');
+      document.getElementById('loginPassword').value = '';
+      showToast('Logged out successfully.', 'slate');
+    }
+
+    function isAdmin() {
+      return store.currentUser?.role === 'admin';
+    }
+
+    function enterAuthenticatedPortal() {
+      document.getElementById('loginGateScreen').classList.add('hidden');
+      document.getElementById('portalAppShell').classList.remove('hidden');
+      document.getElementById('portalAppShell').classList.add('flex');
+
+      const u = store.currentUser;
+      document.getElementById('currentUserNameDisplay').textContent = u.name;
+      document.getElementById('currentUserEmailDisplay').textContent = u.email;
+
+      const roleBadge = document.getElementById('currentUserRoleBadge');
+      if (u.role === 'admin') {
+        roleBadge.textContent = 'ADMIN';
+        roleBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+      } else {
+        roleBadge.textContent = 'USER';
+        roleBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      }
+
+      resetDateToToday();
+      refreshIssueDropdowns();
+      buildDynamicEntryFields();
+      buildDynamicCustomFilters();
+      syncMatrixMonthOptions();
+      applyRoleBasedAccessUI();
+
+      // Default tab selection
+      const defaultTab = isAdmin() ? 'dashboard' : getFirstPermittedTabForUser();
+      switchWorkspaceTab(defaultTab);
+    }
+
+    function getFirstPermittedTabForUser() {
+      const p = store.permissions;
+      if (p.showKpiCards || p.showMatrixTable) return 'dashboard';
+      if (p.showAnalyticsTab) return 'analytics';
+      if (p.showLogsTab) return 'logs';
+      if (p.allowUserEntry) return 'entry';
+      return 'dashboard';
+    }
+
+    function applyRoleBasedAccessUI() {
+      const admin = isAdmin();
+      const p = store.permissions;
+
+      // 1. Navigation Tabs Visibility
+      document.getElementById('navTab_dashboard').classList.toggle('hidden', !admin && !p.showKpiCards && !p.showMatrixTable);
+      document.getElementById('navTab_analytics').classList.toggle('hidden', !admin && !p.showAnalyticsTab);
+      document.getElementById('navTab_logs').classList.toggle('hidden', !admin && !p.showLogsTab);
+      document.getElementById('navTab_entry').classList.toggle('hidden', !admin && !p.allowUserEntry);
+      document.getElementById('navTab_admin').classList.toggle('hidden', !admin);
+
+      // 2. Dashboard Sub-sections Visibility for User
+      document.getElementById('kpiCardsSection').classList.toggle('hidden', !admin && !p.showKpiCards);
+      document.getElementById('oemMatrixSection').classList.toggle('hidden', !admin && !p.showMatrixTable);
+      document.getElementById('dashboardQuickChartsSection').classList.toggle('hidden', !admin && !p.showAnalyticsTab);
+
+      // 3. Export / Print Buttons Visibility
+      const canExport = admin || p.allowUserExportPrint;
+      document.getElementById('headerExportBtn').classList.toggle('hidden', !canExport);
+      document.getElementById('headerPrintBtn').classList.toggle('hidden', !canExport);
+      document.getElementById('headerShareBtn').classList.toggle('hidden', !canExport);
+      document.getElementById('matrixExportBtn').classList.toggle('hidden', !canExport);
+      document.getElementById('matrixPrintBtn').classList.toggle('hidden', !canExport);
+
+      // 4. Admin-only shortcuts inside Entry & Logs
+      document.getElementById('entryAdminShortcuts').classList.toggle('hidden', !admin);
+      document.getElementById('inlineManageIssueBtn').classList.toggle('hidden', !admin);
+      document.getElementById('logsQuickAddBtn').classList.toggle('hidden', !admin && !p.allowUserEntry);
+
+      document.getElementById('matrixEditHintText').textContent = admin
+        ? 'Admin Mode: Click any Tat or Poc cell directly to edit & sync.'
+        : 'Read-Only Executive View (Managed by Admin).';
+
+      // 5. OEM Restriction for Users
+      if (!admin && p.allowedOem && p.allowedOem !== 'ALL') {
+        appState.oemFilter = p.allowedOem;
+        ['ALL', 'Inverted', 'Livguard', 'Trontek'].forEach(k => {
+          const btn = document.getElementById(`oemPill_${k}`);
+          btn.classList.toggle('hidden', k !== p.allowedOem);
+        });
+      } else {
+        ['ALL', 'Inverted', 'Livguard', 'Trontek'].forEach(k => {
+          const btn = document.getElementById(`oemPill_${k}`);
+          btn.classList.remove('hidden');
+        });
+      }
+
+      setGlobalOemFilter(appState.oemFilter, false);
+    }
+
+    function switchWorkspaceTab(tabName) {
+      const admin = isAdmin();
+      const p = store.permissions;
+
+      // Guard unauthorized tab switch
+      if (!admin) {
+        if (tabName === 'admin') tabName = getFirstPermittedTabForUser();
+        if (tabName === 'entry' && !p.allowUserEntry) tabName = getFirstPermittedTabForUser();
+        if (tabName === 'analytics' && !p.showAnalyticsTab) tabName = getFirstPermittedTabForUser();
+        if (tabName === 'logs' && !p.showLogsTab) tabName = getFirstPermittedTabForUser();
+      }
+
+      appState.activeTab = tabName;
+
+      // Toggle views
+      ['dashboard', 'analytics', 'logs', 'entry', 'admin'].forEach(t => {
+        const viewEl = document.getElementById(`view_${t}`);
+        const navBtn = document.getElementById(`navTab_${t}`);
+        if (t === tabName) {
+          viewEl.classList.remove('hidden');
+          navBtn.className = 'px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 whitespace-nowrap bg-indigo-600 text-white shadow-sm transition';
+        } else {
+          viewEl.classList.add('hidden');
+          navBtn.className = 'px-3.5 py-2 rounded-xl font-semibold flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800/80 transition';
+        }
+      });
+
+      // Show shared Deep Filter Bar only on analytical/log views
+      const showFilterBar = ['dashboard', 'analytics', 'logs'].includes(tabName);
+      document.getElementById('globalDeepFilterSection').classList.toggle('hidden', !showFilterBar);
+
+      renderActiveWorkspace();
+    }
+
+    function renderActiveWorkspace() {
+      if (!store.currentUser) return;
+      const tab = appState.activeTab;
+      if (tab === 'dashboard') renderExecutiveDashboard();
+      else if (tab === 'analytics') renderDeepAnalytics();
+      else if (tab === 'logs') renderMasterLogs();
+      else if (tab === 'admin' && isAdmin()) renderAdminControlCenter();
+    }
+
+    /**
+     * ============================================================================
+     * 5. HELPER FUNCTIONS: OEM AUTO-DETECTION & DATE / WEEK / MONTH MATH
+     * ============================================================================
+     */
+    function detectOemFromSrNo(srNo) {
+      const clean = String(srNo || '').trim().toUpperCase();
+      if (clean.startsWith('INC')) return 'Inverted';
+      if (clean.startsWith('ML')) return 'Livguard';
+      if (clean.startsWith('TK')) return 'Trontek';
+      return 'Other';
+    }
+
+    function getOemBadgeHtml(oem) {
+      if (oem === 'Inverted') return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">Inverted</span>`;
+      if (oem === 'Livguard') return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300">Livguard</span>`;
+      if (oem === 'Trontek') return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-blue-100 text-blue-900 border border-blue-300">Trontek</span>`;
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">${escapeHtml(oem || 'Other')}</span>`;
+    }
+
+    function getLocalDateString(dateObj = new Date()) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatMonthLabel(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d || 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function formatShortMonthOnly(monthKey) {
+      if (!monthKey) return '';
+      const [y, m] = monthKey.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+    }
+
+    function getMonthKey(dateStr) {
+      return dateStr ? dateStr.slice(0, 7) : '';
+    }
+
+    function getWeekStartDate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      const day = dt.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      dt.setDate(dt.getDate() + diff);
+      return getLocalDateString(dt);
+    }
+
+    function formatWeekRangeLabel(mondayStr) {
+      const [y, m, d] = mondayStr.split('-').map(Number);
+      const start = new Date(y, m - 1, d);
+      const end = new Date(y, m - 1, d + 6);
+      const sFmt = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      const eFmt = end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `${sFmt} – ${eFmt}`;
+    }
+
+    function normalizeImportedDate(rawVal) {
+      if (!rawVal) return getLocalDateString();
+      if (typeof rawVal === 'number') {
+        const utcDays = Math.floor(rawVal - 25569);
+        return getLocalDateString(new Date(utcDays * 86400 * 1000));
+      }
+      const str = String(rawVal).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+      const parsed = new Date(str);
+      return !isNaN(parsed.getTime()) ? getLocalDateString(parsed) : getLocalDateString();
+    }
+
+    /**
+     * ============================================================================
+     * 6. DEEP MULTI-DIMENSIONAL FILTER PIPELINE
+     * ============================================================================
+     */
+    function setGlobalOemFilter(oem, triggerRender = true) {
+      if (!isAdmin() && store.permissions.allowedOem !== 'ALL') {
+        oem = store.permissions.allowedOem;
+      }
+      appState.oemFilter = oem;
+      ['ALL', 'Inverted', 'Livguard', 'Trontek'].forEach(key => {
+        const btn = document.getElementById(`oemPill_${key}`);
+        if (!btn) return;
+        btn.className = key === oem
+          ? 'px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-900 text-white shadow-xs transition'
+          : 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition';
+      });
+      if (triggerRender) renderActiveWorkspace();
+    }
+
+    function setReportMode(mode) {
+      appState.reportMode = mode;
+      ['3month', 'monthly', 'weekly', 'daily', 'custom', 'all'].forEach(m => {
+        const el = document.getElementById(`tab_${m}`);
+        if (!el) return;
+        el.className = m === mode
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-white text-slate-950 shadow-xs transition'
+          : 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition';
+      });
+      buildPeriodSubSelector();
+      renderActiveWorkspace();
+    }
+
+    function buildPeriodSubSelector() {
+      const wrap = document.getElementById('periodSubFilterWrapper');
+      const all = store.records;
+
+      if (appState.reportMode === 'weekly') {
+        const weeks = new Set([getWeekStartDate(getLocalDateString())]);
+        all.forEach(r => r.date && weeks.add(getWeekStartDate(r.date)));
+        const sorted = Array.from(weeks).sort((a, b) => b.localeCompare(a));
+        if (!sorted.includes(appState.selectedWeekStart)) appState.selectedWeekStart = sorted[0];
+
+        wrap.innerHTML = `
+          <select onchange="window.appState.selectedWeekStart=this.value; window.renderActiveWorkspace();" class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800">
+            ${sorted.map(w => `<option value="${w}" ${w === appState.selectedWeekStart ? 'selected' : ''}>Week: ${formatWeekRangeLabel(w)}</option>`).join('')}
+          </select>
+        `;
+      } else if (appState.reportMode === 'monthly') {
+        const months = new Set([getMonthKey(getLocalDateString())]);
+        all.forEach(r => r.date && months.add(getMonthKey(r.date)));
+        const sorted = Array.from(months).sort((a, b) => b.localeCompare(a));
+        if (!sorted.includes(appState.selectedMonthKey)) appState.selectedMonthKey = sorted[0];
+
+        wrap.innerHTML = `
+          <select onchange="window.appState.selectedMonthKey=this.value; window.renderActiveWorkspace();" class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800">
+            ${sorted.map(m => `<option value="${m}" ${m === appState.selectedMonthKey ? 'selected' : ''}>${formatMonthLabel(m + '-01')}</option>`).join('')}
+          </select>
+        `;
+      } else if (appState.reportMode === 'daily') {
+        wrap.innerHTML = `
+          <input type="date" value="${appState.selectedDayDate}" onchange="window.appState.selectedDayDate=this.value; window.renderActiveWorkspace();" class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800" />
+        `;
+      } else if (appState.reportMode === 'custom') {
+        wrap.innerHTML = `
+          <div class="flex items-center gap-1.5 text-xs">
+            <input type="date" value="${appState.customStartDate}" onchange="window.appState.customStartDate=this.value; window.renderActiveWorkspace();" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white font-semibold" />
+            <span class="text-slate-400 font-bold">to</span>
+            <input type="date" value="${appState.customEndDate}" onchange="window.appState.customEndDate=this.value; window.renderActiveWorkspace();" class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white font-semibold" />
+          </div>
+        `;
+      } else if (appState.reportMode === 'all') {
+        wrap.innerHTML = `<span class="text-xs font-semibold text-slate-500">All Historical Records</span>`;
+      } else {
+        wrap.innerHTML = `<span class="text-xs font-semibold text-slate-500">Rolling 3-Month Window</span>`;
+      }
+    }
+
+    function buildDynamicCustomFilters() {
+      const slot = document.getElementById('dynamicCustomFiltersSlot');
+      const dropdownCols = store.customColumns.filter(c => c.type === 'dropdown' && Array.isArray(c.options) && c.options.length > 0);
+      slot.innerHTML = dropdownCols.map(col => `
+        <select onchange="window.setCustomColFilter('${col.key}', this.value)" class="px-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white text-slate-700 font-medium">
+          <option value="ALL">All ${escapeHtml(col.label)}</option>
+          ${col.options.map(opt => `<option value="${escapeHtml(opt)}" ${appState.customColFilters[col.key] === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+        </select>
+      `).join('');
+    }
+
+    function setCustomColFilter(colKey, val) {
+      appState.customColFilters[colKey] = val;
+      renderActiveWorkspace();
+    }
+
+    function resetAllFilters() {
+      document.getElementById('globalSearchInput').value = '';
+      document.getElementById('globalIssueFilter').value = 'ALL';
+      appState.customColFilters = {};
+      buildDynamicCustomFilters();
+      if (isAdmin() || store.permissions.allowedOem === 'ALL') {
+        setGlobalOemFilter('ALL', false);
+      }
+      setReportMode('3month');
+    }
+
+    function getFilteredRecords() {
+      const search = document.getElementById('globalSearchInput').value.trim().toLowerCase();
+      const issueFilter = document.getElementById('globalIssueFilter').value;
+      const threeMonths = getRollingThreeMonths(appState.matrixEndMonth);
+
+      return store.records.filter(r => {
+        // 1. OEM Filter
+        if (appState.oemFilter !== 'ALL' && r.oem !== appState.oemFilter) return false;
+
+        // 2. Timeframe Filter
+        if (appState.reportMode === 'weekly' && getWeekStartDate(r.date) !== appState.selectedWeekStart) return false;
+        if (appState.reportMode === 'monthly' && getMonthKey(r.date) !== appState.selectedMonthKey) return false;
+        if (appState.reportMode === 'daily' && r.date !== appState.selectedDayDate) return false;
+        if (appState.reportMode === 'custom') {
+          if (appState.customStartDate && r.date < appState.customStartDate) return false;
+          if (appState.customEndDate && r.date > appState.customEndDate) return false;
+        }
+        if (appState.reportMode === '3month' && !threeMonths.includes(getMonthKey(r.date))) return false;
+
+        // 3. Issue Category Filter
+        if (issueFilter !== 'ALL' && r.issue !== issueFilter) return false;
+
+        // 4. Custom Dropdown Column Filters
+        for (const [colKey, filterVal] of Object.entries(appState.customColFilters)) {
+          if (filterVal && filterVal !== 'ALL' && String(r[colKey] || '') !== filterVal) return false;
+        }
+
+        // 5. Text Search across all fields
+        if (search) {
+          const hay = Object.values(r).join(' ').toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function syncMatrixMonthOptions() {
+      const sel = document.getElementById('matrixEndMonthSelect');
+      const monthKeys = new Set(['2026-11', getMonthKey(getLocalDateString())]);
+      store.records.forEach(r => r.date && monthKeys.add(getMonthKey(r.date)));
+      const sorted = Array.from(monthKeys).sort((a, b) => b.localeCompare(a));
+      if (!sorted.includes(appState.matrixEndMonth)) appState.matrixEndMonth = sorted[0];
+
+      sel.innerHTML = sorted.map(mKey => {
+        const rolling = getRollingThreeMonths(mKey);
+        const label = `${formatShortMonthOnly(rolling[0])}–${formatShortMonthOnly(rolling[2])} ${mKey.slice(0, 4)}`;
+        return `<option value="${mKey}" ${mKey === appState.matrixEndMonth ? 'selected' : ''}>${label}</option>`;
+      }).join('');
+    }
+
+    function onMatrixWindowChange(val) {
+      appState.matrixEndMonth = val;
+      renderActiveWorkspace();
+    }
+
+    function getRollingThreeMonths(endMonthKey) {
+      const [y, m] = endMonthKey.split('-').map(Number);
+      const res = [];
+      for (let offset = 2; offset >= 0; offset--) {
+        const dt = new Date(y, m - 1 - offset, 1);
+        res.push(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
+      }
+      return res;
+    }
+
+    /**
+     * ============================================================================
+     * 7. VIEW 1: EXECUTIVE DASHBOARD & 3-MONTH MATRIX RENDERER
+     * ============================================================================
+     */
+    function renderExecutiveDashboard() {
+      const activeRecords = getFilteredRecords();
+      const threeMonths = getRollingThreeMonths(appState.matrixEndMonth);
+      const oemFiltered = appState.oemFilter === 'ALL'
+        ? store.records
+        : store.records.filter(r => r.oem === appState.oemFilter);
+
+      // KPI 1: Total Units
+      const total = activeRecords.length;
+      document.getElementById('kpiOemTag').textContent = appState.oemFilter === 'ALL' ? 'All OEMs' : appState.oemFilter;
+      document.getElementById('kpiTotalUnits').textContent = total;
+      document.getElementById('kpiPeriodHint').textContent = `Mode: ${appState.reportMode.toUpperCase()}`;
+
+      // KPI 2: Top Issue
+      const counts = {};
+      activeRecords.forEach(r => counts[r.issue] = (counts[r.issue] || 0) + 1);
+      const sortedIssues = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (sortedIssues.length > 0) {
+        document.getElementById('kpiTopIssue').textContent = sortedIssues[0][0];
+        document.getElementById('kpiTopIssue').title = sortedIssues[0][0];
+        const pct = Math.round((sortedIssues[0][1] / total) * 100);
+        document.getElementById('kpiTopIssuePct').textContent = `${sortedIssues[0][1]} units (${pct}% share)`;
+      } else {
+        document.getElementById('kpiTopIssue').textContent = 'No Records';
+        document.getElementById('kpiTopIssuePct').textContent = '0% share';
+      }
+
+      // KPI 3: OEM Breakdown
+      const invCnt = activeRecords.filter(r => r.oem === 'Inverted').length;
+      const livCnt = activeRecords.filter(r => r.oem === 'Livguard').length;
+      const troCnt = activeRecords.filter(r => r.oem === 'Trontek').length;
+      document.getElementById('kpiOemBreakdownList').innerHTML = `
+        <div class="flex justify-between text-amber-800"><span>Inverted (INC):</span><span class="font-extrabold">${invCnt}</span></div>
+        <div class="flex justify-between text-emerald-800"><span>Livguard (ML):</span><span class="font-extrabold">${livCnt}</span></div>
+        <div class="flex justify-between text-blue-800"><span>Trontek (TK):</span><span class="font-extrabold">${troCnt}</span></div>
+      `;
+
+      // KPI 4: Avg TAT
+      let tatSum = 0, tatCount = 0;
+      activeRecords.forEach(r => {
+        if (r.tat) {
+          const num = parseFloat(String(r.tat).replace(/[^0-9.]/g, ''));
+          if (!isNaN(num)) { tatSum += num; tatCount++; }
+        }
+      });
+      document.getElementById('kpiAvgTat').textContent = tatCount > 0 ? `${(tatSum / tatCount).toFixed(1)} Days` : '—';
+      document.getElementById('kpiDistinctIssues').textContent = `${sortedIssues.length} active issue types tracked`;
+
+      // Render 3-Month Matrix Table
+      renderExecutiveMatrixTable(oemFiltered, threeMonths);
+
+      // Render Dashboard Preview Charts
+      const ctx1 = document.getElementById('dashIssueBarChart').getContext('2d');
+      if (appState.charts.dashIssueBar) appState.charts.dashIssueBar.destroy();
+      appState.charts.dashIssueBar = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: sortedIssues.length ? sortedIssues.slice(0, 8).map(s => s[0]) : ['No Data'],
+          datasets: [{
+            label: 'Reported Units',
+            data: sortedIssues.length ? sortedIssues.slice(0, 8).map(s => s[1]) : [0],
+            backgroundColor: '#4f46e5',
+            borderRadius: 6,
+            barThickness: 18
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+            y: {
+              ticks: {
+                font: { size: 11, weight: '600' },
+                callback: function(v) {
+                  const lbl = this.getLabelForValue(v);
+                  return lbl.length > 26 ? lbl.slice(0, 24) + '…' : lbl;
+                }
+              },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+
+      const ctx2 = document.getElementById('dashOemBarChart').getContext('2d');
+      if (appState.charts.dashOemBar) appState.charts.dashOemBar.destroy();
+      appState.charts.dashOemBar = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: threeMonths.map(m => formatShortMonthOnly(m)),
+          datasets: [
+            { label: 'Inverted (INC)', data: threeMonths.map(m => store.records.filter(r => r.oem === 'Inverted' && getMonthKey(r.date) === m).length), backgroundColor: '#f59e0b', borderRadius: 5 },
+            { label: 'Livguard (ML)', data: threeMonths.map(m => store.records.filter(r => r.oem === 'Livguard' && getMonthKey(r.date) === m).length), backgroundColor: '#10b981', borderRadius: 5 },
+            { label: 'Trontek (TK)', data: threeMonths.map(m => store.records.filter(r => r.oem === 'Trontek' && getMonthKey(r.date) === m).length), backgroundColor: '#3b82f6', borderRadius: 5 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '600' } } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+            x: { ticks: { font: { size: 12, weight: '700' } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function renderExecutiveMatrixTable(oemFilteredRecords, threeMonths) {
+      const [m1, m2, m3] = threeMonths;
+      document.getElementById('matrixColM1').textContent = formatShortMonthOnly(m1);
+      document.getElementById('matrixColM2').textContent = formatShortMonthOnly(m2);
+      document.getElementById('matrixColM3').textContent = formatShortMonthOnly(m3);
+
+      const activeOemLabel = appState.oemFilter === 'ALL' ? 'All OEMs (Combined)' : appState.oemFilter;
+      document.getElementById('matrixTopOemBanner').textContent = activeOemLabel;
+
+      const admin = isAdmin();
+      const categories = store.categories;
+      const meta = store.matrixMeta;
+
+      let grandM1 = 0, grandM2 = 0, grandM3 = 0;
+      const rowsData = categories.map(issueName => {
+        const matching = oemFilteredRecords.filter(r => r.issue === issueName);
+        const c1 = matching.filter(r => getMonthKey(r.date) === m1).length;
+        const c2 = matching.filter(r => getMonthKey(r.date) === m2).length;
+        const c3 = matching.filter(r => getMonthKey(r.date) === m3).length;
+        const sum3 = c1 + c2 + c3;
+
+        grandM1 += c1; grandM2 += c2; grandM3 += c3;
+
+        const metaKey = `${appState.oemFilter}__${issueName.replace(/[\/\.#\$\[\]]/g, '_')}`;
+        const tatVal = meta[metaKey]?.tat !== undefined ? meta[metaKey].tat : (matching.find(r => r.tat)?.tat || '');
+        const pocVal = meta[metaKey]?.poc !== undefined ? meta[metaKey].poc : (matching.find(r => r.poc)?.poc || '');
+
+        return { issueName, c1, c2, c3, sum3, tatVal, pocVal };
+      });
+
+      const grandSum3 = grandM1 + grandM2 + grandM3;
+      const tbody = document.getElementById('executiveMatrixBody');
+
+      tbody.innerHTML = rowsData.map((row, idx) => {
+        const pct = grandSum3 > 0 ? Math.round((row.sum3 / grandSum3) * 100) : 0;
+        const pctCellBg = pct >= 20
+          ? 'bg-[#f8696b] text-slate-950 font-extrabold'
+          : pct > 0
+            ? 'bg-[#ffeb84] text-slate-900 font-bold'
+            : 'bg-white text-slate-500';
+
+        const oemDisplayCell = idx === 0
+          ? `<td rowspan="${rowsData.length}" class="py-3 px-3 bg-[#fce4d6] border-r border-slate-400 font-extrabold text-slate-900 align-top whitespace-nowrap">${escapeHtml(activeOemLabel)}</td>`
+          : '';
+
+        const tatCellHtml = admin
+          ? `<input type="text" value="${escapeHtml(row.tatVal)}" placeholder="—" onchange="window.saveMatrixInlineMeta('${escapeAttr(row.issueName)}', 'tat', this.value)" class="w-full text-center text-xs font-medium bg-transparent hover:bg-slate-100 focus:bg-indigo-50 focus:outline-none rounded px-1 py-1" />`
+          : `<span class="text-xs text-slate-700">${escapeHtml(row.tatVal || '—')}</span>`;
+
+        const pocCellHtml = admin
+          ? `<input type="text" value="${escapeHtml(row.pocVal)}" placeholder="—" onchange="window.saveMatrixInlineMeta('${escapeAttr(row.issueName)}', 'poc', this.value)" class="w-full text-center text-xs font-medium bg-transparent hover:bg-slate-100 focus:bg-indigo-50 focus:outline-none rounded px-1 py-1" />`
+          : `<span class="text-xs text-slate-700">${escapeHtml(row.pocVal || '—')}</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            ${oemDisplayCell}
+            <td class="py-2 px-3 border-r border-slate-300 font-medium text-slate-900">${escapeHtml(row.issueName)}</td>
+            <td class="py-2 px-3 border-r border-slate-300 text-center font-semibold">${row.c1}</td>
+            <td class="py-2 px-3 border-r border-slate-300 text-center font-semibold">${row.c2}</td>
+            <td class="py-2 px-3 border-r border-slate-300 text-center font-semibold">${row.c3}</td>
+            <td class="py-2 px-3 border-r border-slate-300 text-center font-extrabold text-slate-950 bg-slate-50/70">${row.sum3}</td>
+            <td class="py-2 px-3 border-r border-slate-300 text-center ${pctCellBg}">${pct}%</td>
+            <td class="py-1 px-2 border-r border-slate-300 text-center">${tatCellHtml}</td>
+            <td class="py-1 px-2 text-center">${pocCellHtml}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('executiveMatrixFooter').innerHTML = `
+        <tr>
+          <td colspan="2" class="py-2.5 px-3 border-r border-slate-400 text-right uppercase tracking-wider">Total Issues</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center">${grandM1}</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center">${grandM2}</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center">${grandM3}</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center bg-yellow-100">${grandSum3}</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center">${grandSum3 > 0 ? '100%' : '0%'}</td>
+          <td class="py-2.5 px-3 border-r border-slate-400 text-center text-slate-400">—</td>
+          <td class="py-2.5 px-3 text-center text-slate-400">—</td>
+        </tr>
+      `;
+    }
+
+    async function saveMatrixInlineMeta(issueName, field, val) {
+      if (!isAdmin()) return;
+      const safeKey = `${appState.oemFilter}__${issueName.replace(/[\/\.#\$\[\]]/g, '_')}`;
+      if (!store.matrixMeta[safeKey]) store.matrixMeta[safeKey] = {};
+      store.matrixMeta[safeKey][field] = val.trim();
+      saveLocalCache();
+      try {
+        await setDoc(doc(db, "matrix_meta", safeKey), store.matrixMeta[safeKey], { merge: true });
+        showToast(`Saved ${field.toUpperCase()} to Firebase`, 'emerald');
+      } catch (e) {
+        showToast(`Saved ${field.toUpperCase()} locally`, 'amber');
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 8. VIEW 2: DEEP ANALYTICS & CHARTS STUDIO
+     * ============================================================================
+     */
+    function renderDeepAnalytics() {
+      const records = getFilteredRecords();
+      const granularity = document.getElementById('trendGranularitySelect').value;
+
+      // 1. Velocity Trend Line Chart
+      const buckets = new Set();
+      records.forEach(r => {
+        if (!r.date) return;
+        if (granularity === 'weekly') buckets.add(getWeekStartDate(r.date));
+        else if (granularity === 'monthly') buckets.add(getMonthKey(r.date));
+        else buckets.add(r.date);
+      });
+      const sortedBuckets = Array.from(buckets).sort((a, b) => a.localeCompare(b));
+      const labels = sortedBuckets.map(b => {
+        if (granularity === 'weekly') return 'Wk ' + b.slice(5);
+        if (granularity === 'monthly') return formatShortMonthOnly(b) + ' ' + b.slice(2, 4);
+        return b.slice(5);
+      });
+
+      const matchBucket = (r, b) => {
+        if (granularity === 'weekly') return getWeekStartDate(r.date) === b;
+        if (granularity === 'monthly') return getMonthKey(r.date) === b;
+        return r.date === b;
+      };
+
+      const ctxTrend = document.getElementById('deepTrendLineChart').getContext('2d');
+      if (appState.charts.deepTrendLine) appState.charts.deepTrendLine.destroy();
+      appState.charts.deepTrendLine = new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+          labels: labels.length ? labels : ['No Data'],
+          datasets: [
+            { label: 'Inverted (INC)', data: sortedBuckets.map(b => records.filter(r => r.oem === 'Inverted' && matchBucket(r, b)).length), borderColor: '#f59e0b', backgroundColor: '#f59e0b22', tension: 0.3, fill: true, borderWidth: 2.5 },
+            { label: 'Livguard (ML)', data: sortedBuckets.map(b => records.filter(r => r.oem === 'Livguard' && matchBucket(r, b)).length), borderColor: '#10b981', backgroundColor: '#10b98122', tension: 0.3, fill: true, borderWidth: 2.5 },
+            { label: 'Trontek (TK)', data: sortedBuckets.map(b => records.filter(r => r.oem === 'Trontek' && matchBucket(r, b)).length), borderColor: '#3b82f6', backgroundColor: '#3b82f622', tension: 0.3, fill: true, borderWidth: 2.5 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '600' } } } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } }
+        }
+      });
+
+      // 2. OEM Share Doughnut
+      const invCnt = records.filter(r => r.oem === 'Inverted').length;
+      const livCnt = records.filter(r => r.oem === 'Livguard').length;
+      const troCnt = records.filter(r => r.oem === 'Trontek').length;
+      const othCnt = records.filter(r => !['Inverted', 'Livguard', 'Trontek'].includes(r.oem)).length;
+
+      const ctxDonut = document.getElementById('deepOemDonutChart').getContext('2d');
+      if (appState.charts.deepOemDonut) appState.charts.deepOemDonut.destroy();
+      appState.charts.deepOemDonut = new Chart(ctxDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Inverted (INC)', 'Livguard (ML)', 'Trontek (TK)', 'Other'],
+          datasets: [{
+            data: [invCnt, livCnt, troCnt, othCnt],
+            backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#94a3b8'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '600' } } } }
+        }
+      });
+
+      // 3. Issue x OEM Stacked Comparison Bar Chart
+      const activeCats = store.categories.filter(c => records.some(r => r.issue === c));
+      const catList = activeCats.length ? activeCats : store.categories.slice(0, 6);
+
+      const ctxStack = document.getElementById('deepStackedIssueChart').getContext('2d');
+      if (appState.charts.deepStackedIssue) appState.charts.deepStackedIssue.destroy();
+      appState.charts.deepStackedIssue = new Chart(ctxStack, {
+        type: 'bar',
+        data: {
+          labels: catList.map(c => c.length > 30 ? c.slice(0, 28) + '…' : c),
+          datasets: [
+            { label: 'Inverted (INC)', data: catList.map(c => records.filter(r => r.issue === c && r.oem === 'Inverted').length), backgroundColor: '#f59e0b', borderRadius: 4 },
+            { label: 'Livguard (ML)', data: catList.map(c => records.filter(r => r.issue === c && r.oem === 'Livguard').length), backgroundColor: '#10b981', borderRadius: 4 },
+            { label: 'Trontek (TK)', data: catList.map(c => records.filter(r => r.issue === c && r.oem === 'Trontek').length), backgroundColor: '#3b82f6', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+
+      // 4. Deep Insights OEM Summary Table
+      const oems = [
+        { name: 'Inverted', prefix: 'INC...' },
+        { name: 'Livguard', prefix: 'ML...' },
+        { name: 'Trontek', prefix: 'TK...' }
+      ];
+      const totalAll = records.length;
+      document.getElementById('deepInsightsTbody').innerHTML = oems.map(o => {
+        const sub = records.filter(r => r.oem === o.name);
+        const pct = totalAll > 0 ? Math.round((sub.length / totalAll) * 100) : 0;
+        const issueMap = {};
+        sub.forEach(r => issueMap[r.issue] = (issueMap[r.issue] || 0) + 1);
+        const topMode = Object.entries(issueMap).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+        let tSum = 0, tCnt = 0;
+        sub.forEach(r => {
+          const n = parseFloat(String(r.tat || '').replace(/[^0-9.]/g, ''));
+          if (!isNaN(n)) { tSum += n; tCnt++; }
+        });
+        const avgTat = tCnt > 0 ? `${(tSum / tCnt).toFixed(1)} Days` : '—';
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4">${getOemBadgeHtml(o.name)}</td>
+            <td class="py-3 px-4 font-mono text-xs font-bold text-slate-600">${o.prefix}</td>
+            <td class="py-3 px-4 text-center font-extrabold text-slate-900">${sub.length}</td>
+            <td class="py-3 px-4 text-center font-bold text-indigo-700">${pct}%</td>
+            <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(topMode)}</td>
+            <td class="py-3 px-4 text-center font-semibold text-slate-700">${avgTat}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /**
+     * ============================================================================
+     * 9. VIEW 3: MASTER BATTERY LOGS TABLE (DYNAMIC COLUMNS + RBAC VISIBILITY)
+     * ============================================================================
+     */
+    function getVisibleColumnsForCurrentUser() {
+      const allCols = [...BUILTIN_COLUMNS, ...store.customColumns];
+      if (isAdmin()) return allCols;
+      const hidden = store.permissions.hiddenColumnsForUser || [];
+      return allCols.filter(c => !hidden.includes(c.key));
+    }
+
+    function renderMasterLogs() {
+      const records = getFilteredRecords().sort((a, b) => b.date.localeCompare(a.date));
+      const visibleCols = getVisibleColumnsForCurrentUser();
+      const admin = isAdmin();
+
+      document.getElementById('masterLogsCountBadge').textContent = `${records.length} Record(s)`;
+
+      const thead = document.getElementById('masterLogsThead');
+      thead.innerHTML = `
+        <tr>
+          <th class="py-3 px-4">#</th>
+          ${visibleCols.map(c => `<th class="py-3 px-4 whitespace-nowrap">${escapeHtml(c.label)}</th>`).join('')}
+          ${admin ? `<th class="py-3 px-4 text-right no-print">Admin Actions</th>` : ''}
+        </tr>
+      `;
+
+      const tbody = document.getElementById('masterLogsTbody');
+      const empty = document.getElementById('masterLogsEmptyState');
+
+      if (records.length === 0) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      tbody.innerHTML = records.map((r, idx) => {
+        const cells = visibleCols.map(col => {
+          const val = r[col.key];
+          if (col.key === 'batterySrNo') return `<td class="py-2.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">${escapeHtml(val)}</td>`;
+          if (col.key === 'oem') return `<td class="py-2.5 px-4 whitespace-nowrap">${getOemBadgeHtml(val)}</td>`;
+          if (col.key === 'month') return `<td class="py-2.5 px-4 whitespace-nowrap"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-semibold">${escapeHtml(val)}</span></td>`;
+          if (col.key === 'issue') return `<td class="py-2.5 px-4 font-semibold text-slate-800">${escapeHtml(val)}</td>`;
+          return `<td class="py-2.5 px-4 text-xs text-slate-700">${escapeHtml(val || '—')}</td>`;
+        }).join('');
+
+        const adminActions = admin ? `
+          <td class="py-2.5 px-4 text-right whitespace-nowrap no-print">
+            <button onclick="window.openEditRecordModal('${r.id}')" class="p-1 text-slate-500 hover:text-indigo-600" title="Edit Entry">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button onclick="window.deleteRecord('${r.id}')" class="p-1 text-slate-500 hover:text-rose-600" title="Delete Entry">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </td>
+        ` : '';
+
+        return `<tr class="hover:bg-slate-50 transition"><td class="py-2.5 px-4 text-xs font-semibold text-slate-400">${idx + 1}</td>${cells}${adminActions}</tr>`;
+      }).join('');
+    }
+
+    /**
+     * ============================================================================
+     * 10. VIEW 4: DATA ENTRY & BULK IMPORT ENGINE
+     * ============================================================================
+     */
+    function resetDateToToday() {
+      const today = getLocalDateString();
+      document.getElementById('entryDate').value = today;
+      document.getElementById('entryMonthDisplay').value = formatMonthLabel(today);
+    }
+
+    function buildDynamicEntryFields() {
+      const wrap = document.getElementById('dynamicEntryCustomFields');
+      wrap.innerHTML = store.customColumns.map(col => {
+        if (col.type === 'dropdown') {
+          const opts = (col.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+          return `
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">${escapeHtml(col.label)}</label>
+              <select data-custom-col="${col.key}" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-900">
+                <option value="">Select ${escapeHtml(col.label)}...</option>
+                ${opts}
+              </select>
+            </div>
+          `;
+        }
+        const inputType = col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text';
+        return `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">${escapeHtml(col.label)}</label>
+            <input type="${inputType}" data-custom-col="${col.key}" placeholder="Enter ${escapeHtml(col.label)}..." class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-900" />
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function handleAddRecord(e) {
+      e.preventDefault();
+      if (!isAdmin() && !store.permissions.allowUserEntry) {
+        showToast('Entry permission is restricted by Admin.', 'rose');
+        return;
+      }
+
+      const srNo = document.getElementById('batterySrNo').value.trim().toUpperCase();
+      const oem = document.getElementById('oemMakeSelect').value;
+      const dateStr = document.getElementById('entryDate').value;
+      const issue = document.getElementById('issueCategory').value;
+      const tat = document.getElementById('entryTat').value.trim();
+      const poc = document.getElementById('entryPoc').value.trim();
+      const remarks = document.getElementById('entryRemarks').value.trim();
+
+      if (!srNo || !dateStr || !issue) return;
+
+      const newRec = {
+        id: 'rec_' + Date.now(),
+        batterySrNo: srNo,
+        oem,
+        date: dateStr,
+        month: formatMonthLabel(dateStr),
+        issue,
+        tat,
+        poc,
+        remarks,
+        enteredBy: store.currentUser?.email || 'admin'
+      };
+
+      // Gather custom column values
+      document.querySelectorAll('#dynamicEntryCustomFields [data-custom-col]').forEach(el => {
+        newRec[el.getAttribute('data-custom-col')] = el.value.trim();
+        el.value = '';
+      });
+
+      store.records.unshift(newRec);
+      saveLocalCache();
+
+      document.getElementById('batterySrNo').value = '';
+      document.getElementById('entryRemarks').value = '';
+      document.getElementById('liveOemDetectionTag').textContent = 'Auto OEM';
+      document.getElementById('liveOemDetectionTag').className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500';
+      document.getElementById('batterySrNo').focus();
+
+      syncMatrixMonthOptions();
+      buildPeriodSubSelector();
+
+      try {
+        await setDoc(doc(db, "battery_logs", newRec.id), newRec);
+        showToast(`Saved ${srNo} (${oem}) to Firebase!`, 'emerald');
+      } catch (err) {
+        showToast(`Saved ${srNo} locally.`, 'amber');
+      }
+    }
+
+    function openEditRecordModal(id) {
+      if (!isAdmin()) return;
+      const rec = store.records.find(r => r.id === id);
+      if (!rec) return;
+
+      refreshIssueDropdowns();
+      document.getElementById('editRecordId').value = rec.id;
+      document.getElementById('editBatterySrNo').value = rec.batterySrNo;
+      document.getElementById('editOemMake').value = rec.oem || detectOemFromSrNo(rec.batterySrNo);
+      document.getElementById('editEntryDate').value = rec.date;
+      document.getElementById('editEntryMonth').value = formatMonthLabel(rec.date);
+      document.getElementById('editIssueCategory').value = rec.issue;
+      document.getElementById('editEntryTat').value = rec.tat || '';
+      document.getElementById('editEntryPoc').value = rec.poc || '';
+      document.getElementById('editEntryRemarks').value = rec.remarks || '';
+
+      // Render custom columns inside edit modal
+      const customWrap = document.getElementById('editModalCustomFields');
+      customWrap.innerHTML = store.customColumns.map(col => {
+        const curVal = rec[col.key] || '';
+        if (col.type === 'dropdown') {
+          const opts = (col.options || []).map(o => `<option value="${escapeHtml(o)}" ${curVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+          return `
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">${escapeHtml(col.label)}</label>
+              <select data-edit-custom-col="${col.key}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                <option value="">—</option>
+                ${opts}
+              </select>
+            </div>
+          `;
+        }
+        const inputType = col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text';
+        return `
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">${escapeHtml(col.label)}</label>
+            <input type="${inputType}" data-edit-custom-col="${col.key}" value="${escapeHtml(curVal)}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+        `;
+      }).join('');
+
+      const modal = document.getElementById('editRecordModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeEditRecordModal() {
+      const modal = document.getElementById('editRecordModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function handleEditRecordSubmit(e) {
+      e.preventDefault();
+      if (!isAdmin()) return;
+
+      const recId = document.getElementById('editRecordId').value;
+      const existing = store.records.find(r => r.id === recId) || {};
+      const dateStr = document.getElementById('editEntryDate').value;
+
+      const updated = {
+        ...existing,
+        id: recId,
+        batterySrNo: document.getElementById('editBatterySrNo').value.trim().toUpperCase(),
+        oem: document.getElementById('editOemMake').value,
+        date: dateStr,
+        month: formatMonthLabel(dateStr),
+        issue: document.getElementById('editIssueCategory').value,
+        tat: document.getElementById('editEntryTat').value.trim(),
+        poc: document.getElementById('editEntryPoc').value.trim(),
+        remarks: document.getElementById('editEntryRemarks').value.trim()
+      };
+
+      document.querySelectorAll('#editModalCustomFields [data-edit-custom-col]').forEach(el => {
+        updated[el.getAttribute('data-edit-custom-col')] = el.value.trim();
+      });
+
+      store.records = store.records.map(r => r.id === updated.id ? updated : r);
+      saveLocalCache();
+      closeEditRecordModal();
+      syncMatrixMonthOptions();
+      renderActiveWorkspace();
+
+      try {
+        await setDoc(doc(db, "battery_logs", updated.id), updated);
+        showToast(`Updated ${updated.batterySrNo} in Firebase`, 'blue');
+      } catch (err) {
+        showToast(`Updated ${updated.batterySrNo} locally`, 'amber');
+      }
+    }
+
+    async function deleteRecord(id) {
+      if (!isAdmin()) return;
+      store.records = store.records.filter(r => r.id !== id);
+      saveLocalCache();
+      renderActiveWorkspace();
+      try {
+        await deleteDoc(doc(db, "battery_logs", id));
+        showToast('Record deleted from Firebase.', 'slate');
+      } catch (err) {
+        showToast('Record deleted locally.', 'slate');
+      }
+    }
+
+    // Bulk File Upload & Copy-Paste Parsing
+    function handleBulkFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+          const parsed = jsonRows.map((row, idx) => {
+            const srRaw = row['Battery Sr No'] || row['Sr No'] || row['Serial No'] || Object.values(row)[0] || '';
+            const srNo = String(srRaw).trim().toUpperCase();
+            if (!srNo) return null;
+
+            const dateStr = normalizeImportedDate(row['Date'] || Object.values(row)[1] || '');
+            const issueRaw = row['Issue'] || row['Type of Issue'] || row['Type of issues'] || Object.values(row)[2] || store.categories[0];
+            const oemRaw = row['OEM'] || row['OEM Make'] || '';
+
+            const obj = {
+              id: 'rec_' + (Date.now() + idx),
+              batterySrNo: srNo,
+              oem: oemRaw ? String(oemRaw).trim() : detectOemFromSrNo(srNo),
+              date: dateStr,
+              month: formatMonthLabel(dateStr),
+              issue: String(issueRaw).trim(),
+              tat: String(row['TAT'] || row['Tat'] || '').trim(),
+              poc: String(row['POC'] || row['Poc'] || '').trim(),
+              remarks: String(row['Remarks'] || '').trim()
+            };
+
+            // Map any matching custom columns from Excel headers
+            store.customColumns.forEach(c => {
+              if (row[c.label] !== undefined) obj[c.key] = String(row[c.label]).trim();
+            });
+
+            return obj;
+          }).filter(Boolean);
+
+          populateBulkPreview(parsed);
+        } catch (err) {
+          showToast('Error reading Excel/CSV file.', 'rose');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parsePastedText() {
+      const text = document.getElementById('bulkPasteTextarea').value.trim();
+      if (!text) return showToast('Paste rows from Excel first.', 'amber');
+
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const parsed = lines.map((line, idx) => {
+        const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+        const srNo = (cols[0] || '').trim().toUpperCase();
+        if (!srNo || srNo === 'BATTERY SR NO' || srNo === 'SR NO') return null;
+
+        const dateStr = normalizeImportedDate(cols[1] || '');
+        return {
+          id: 'rec_' + (Date.now() + idx),
+          batterySrNo: srNo,
+          oem: detectOemFromSrNo(srNo),
+          date: dateStr,
+          month: formatMonthLabel(dateStr),
+          issue: (cols[2] || store.categories[0]).trim(),
+          tat: (cols[3] || '').trim(),
+          poc: (cols[4] || '').trim(),
+          remarks: (cols[5] || '').trim()
+        };
+      }).filter(Boolean);
+
+      populateBulkPreview(parsed);
+    }
+
+    function populateBulkPreview(rows) {
+      appState.pendingBulkRows = rows;
+      const section = document.getElementById('bulkPreviewSection');
+      const tbody = document.getElementById('bulkPreviewTbody');
+      const countLbl = document.getElementById('bulkPreviewCountLabel');
+
+      if (!rows.length) {
+        section.classList.add('hidden');
+        return showToast('No valid Battery Sr. No. rows found.', 'amber');
+      }
+
+      section.classList.remove('hidden');
+      countLbl.textContent = `Preview (${rows.length} valid rows ready to upload)`;
+      tbody.innerHTML = rows.slice(0, 40).map((r, i) => `
+        <tr>
+          <td class="py-1.5 px-3 text-slate-400">${i + 1}</td>
+          <td class="py-1.5 px-3 font-mono font-bold text-slate-900">${escapeHtml(r.batterySrNo)}</td>
+          <td class="py-1.5 px-3">${getOemBadgeHtml(r.oem)}</td>
+          <td class="py-1.5 px-3">${escapeHtml(r.date)}</td>
+          <td class="py-1.5 px-3 font-semibold">${escapeHtml(r.month)}</td>
+          <td class="py-1.5 px-3">${escapeHtml(r.issue)}</td>
+          <td class="py-1.5 px-3 text-slate-500">${escapeHtml(r.tat || '—')} / ${escapeHtml(r.poc || '—')}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function confirmBulkImport() {
+      const rows = appState.pendingBulkRows;
+      if (!rows.length) return;
+
+      rows.forEach(r => {
+        if (r.issue && !store.categories.some(c => c.toLowerCase() === r.issue.toLowerCase())) {
+          store.categories.push(r.issue);
+        }
+      });
+      refreshIssueDropdowns();
+
+      const replace = document.getElementById('bulkReplaceExisting').checked;
+      const oldIds = replace ? store.records.map(r => r.id) : [];
+      store.records = replace ? rows : [...rows, ...store.records];
+      saveLocalCache();
+
+      document.getElementById('bulkPreviewSection').classList.add('hidden');
+      appState.pendingBulkRows = [];
+      syncMatrixMonthOptions();
+      buildPeriodSubSelector();
+
+      try {
+        const batch = writeBatch(db);
+        if (oldIds.length) oldIds.forEach(id => batch.delete(doc(db, "battery_logs", id)));
+        rows.slice(0, 450).forEach(rec => batch.set(doc(db, "battery_logs", rec.id), rec));
+        await batch.commit();
+        showToast(`Uploaded ${rows.length} records to Firebase!`, 'emerald');
+      } catch (e) {
+        showToast(`Imported ${rows.length} records locally.`, 'amber');
+      }
+    }
+
+    function downloadSampleTemplate() {
+      const sampleRow = {
+        'Battery Sr No': 'INC2611501',
+        'Date': getLocalDateString(),
+        'Issue': 'BMS CAN Port/Communication/Parameter issue',
+        'TAT': '2 Days',
+        'POC': 'Amit Sharma',
+        'Remarks': 'CAN parameter check'
+      };
+      store.customColumns.forEach(c => {
+        sampleRow[c.label] = c.options?.[0] || '';
+      });
+      const ws = XLSX.utils.json_to_sheet([sampleRow]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Battery_Template');
+      XLSX.writeFile(wb, 'Mooving_Battery_Import_Template.xlsx');
+    }
+
+    /**
+     * ============================================================================
+     * 11. VIEW 5: ADMIN CONTROL CENTER (USERS, PERMISSIONS & DYNAMIC COLUMNS)
+     * ============================================================================
+     */
+    function renderAdminControlCenter() {
+      if (!isAdmin()) return;
+
+      // 1. Render Users & Admins Table
+      document.getElementById('adminUsersTbody').innerHTML = store.users.map(u => {
+        const isSelf = u.id === store.currentUser?.id;
+        const rolePill = u.role === 'admin'
+          ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-100 text-indigo-800">ADMIN</span>`
+          : `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-100 text-emerald-800">USER</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3.5 font-bold text-slate-900">${escapeHtml(u.name)} ${isSelf ? '<span class="text-[10px] text-indigo-600">(You)</span>' : ''}</td>
+            <td class="py-2.5 px-3.5 font-mono text-xs text-slate-700">${escapeHtml(u.email)}</td>
+            <td class="py-2.5 px-3.5 font-mono text-xs text-slate-500">${escapeHtml(u.password)}</td>
+            <td class="py-2.5 px-3.5">${rolePill}</td>
+            <td class="py-2.5 px-3.5 text-right space-x-1.5 whitespace-nowrap">
+              ${!isSelf ? `
+                <button onclick="window.toggleUserRole('${u.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-xs font-bold transition">
+                  Make ${u.role === 'admin' ? 'User' : 'Admin'}
+                </button>
+                <button onclick="window.deletePortalUser('${u.id}')" class="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition">
+                  Delete
+                </button>
+              ` : '<span class="text-[11px] text-slate-400">Active Master</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 2. Render User Visibility Permission Toggles
+      const p = store.permissions;
+      const toggleConfigs = [
+        { key: 'showKpiCards', label: 'Show Executive KPI Summary Cards' },
+        { key: 'showMatrixTable', label: 'Show 3-Month OEM Summary Matrix (Work Scope)' },
+        { key: 'showAnalyticsTab', label: 'Show Deep Analytics & Charts Tab' },
+        { key: 'showLogsTab', label: 'Show Master Battery Failure Logs Tab' },
+        { key: 'allowUserEntry', label: 'Allow Users to Add New Battery Entries' },
+        { key: 'allowUserExportPrint', label: 'Allow Users to Export Excel / Share / Print' }
+      ];
+
+      document.getElementById('userPermissionsTogglesList').innerHTML = toggleConfigs.map(tc => `
+        <label class="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+          <span class="font-semibold text-slate-800 text-xs sm:text-sm">${tc.label}</span>
+          <input type="checkbox" ${p[tc.key] ? 'checked' : ''} onchange="window.toggleUserPermissionFlag('${tc.key}', this.checked)" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" />
+        </label>
+      `).join('');
+
+      document.getElementById('permUserAllowedOem').value = p.allowedOem || 'ALL';
+
+      // Per-Column Visibility Checkboxes for Users
+      const allCols = [...BUILTIN_COLUMNS, ...store.customColumns];
+      const hiddenCols = p.hiddenColumnsForUser || [];
+      document.getElementById('userColumnVisibilityCheckboxes').innerHTML = allCols.map(c => `
+        <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer">
+          <input type="checkbox" ${!hiddenCols.includes(c.key) ? 'checked' : ''} onchange="window.toggleUserColumnVisibility('${c.key}', this.checked)" class="rounded text-indigo-600" />
+          <span class="font-medium text-slate-800 truncate">${escapeHtml(c.label)}</span>
+        </label>
+      `).join('');
+
+      // 3. Render Dynamic Columns Schema Table
+      document.getElementById('adminColumnsTbody').innerHTML = allCols.map(c => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3.5 font-bold text-slate-900">${escapeHtml(c.label)}</td>
+          <td class="py-2.5 px-3.5 uppercase text-xs font-mono text-slate-600">${escapeHtml(c.type)}</td>
+          <td class="py-2.5 px-3.5 text-xs text-slate-500">
+            ${c.builtin ? '<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">Core System Column</span>' : escapeHtml((c.options || []).join(', ') || 'Free Input')}
+          </td>
+          <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
+            ${!c.builtin ? `
+              <button onclick="window.openEditColumnModal('${c.key}')" class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold mr-1">Edit</button>
+              <button onclick="window.deleteCustomColumn('${c.key}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold">Delete</button>
+            ` : '<span class="text-[11px] text-slate-400">Protected</span>'}
+          </td>
+        </tr>
+      `).join('');
+
+      // 4. Render Issue Dropdown Quick List
+      document.getElementById('adminQuickIssuePreview').innerHTML = store.categories.map((cat, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+          <span class="font-medium text-slate-800 truncate">${idx + 1}. ${escapeHtml(cat)}</span>
+          <button onclick="window.removeIssueCategory(${idx})" class="text-rose-500 hover:text-rose-700 font-bold ml-2">×</button>
+        </div>
+      `).join('');
+    }
+
+    // Admin User CRUD Actions
+    async function handleCreateUserSubmit(e) {
+      e.preventDefault();
+      if (!isAdmin()) return;
+      const name = document.getElementById('newUserName').value.trim();
+      const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
+      const password = document.getElementById('newUserPassword').value.trim();
+      const role = document.getElementById('newUserRole').value;
+
+      if (!name || !email || !password) return;
+      if (store.users.some(u => u.email.toLowerCase() === email)) {
+        return showToast('A user with this Email/ID already exists.', 'amber');
+      }
+
+      const newUser = { id: 'usr_' + Date.now(), name, email, password, role };
+      store.users.push(newUser);
+      saveLocalCache();
+      document.getElementById('createUserForm').reset();
+      renderAdminControlCenter();
+
+      try {
+        await setDoc(doc(db, "portal_users", newUser.id), newUser);
+        showToast(`Created ${role.toUpperCase()} account for ${name}!`, 'emerald');
+      } catch (err) {
+        showToast(`Created ${name} locally.`, 'amber');
+      }
+    }
+
+    async function toggleUserRole(userId) {
+      if (!isAdmin()) return;
+      const target = store.users.find(u => u.id === userId);
+      if (!target) return;
+      target.role = target.role === 'admin' ? 'user' : 'admin';
+      saveLocalCache();
+      renderAdminControlCenter();
+      try {
+        await setDoc(doc(db, "portal_users", target.id), target);
+        showToast(`Updated ${target.name} to ${target.role.toUpperCase()}`, 'blue');
+      } catch (e) {}
+    }
+
+    async function deletePortalUser(userId) {
+      if (!isAdmin() || userId === store.currentUser?.id) return;
+      store.users = store.users.filter(u => u.id !== userId);
+      saveLocalCache();
+      renderAdminControlCenter();
+      try {
+        await deleteDoc(doc(db, "portal_users", userId));
+        showToast('User account deleted.', 'slate');
+      } catch (e) {}
+    }
+
+    // Admin RBAC Visibility Toggles
+    async function persistRbacSettingsToCloud() {
+      saveLocalCache();
+      try {
+        await setDoc(settingsDocRef, {
+          permissions: store.permissions,
+          customColumns: store.customColumns
+        });
+        showToast('Permissions & Schema saved to Firebase!', 'emerald');
+      } catch (e) {
+        showToast('Permissions saved locally.', 'amber');
+      }
+    }
+
+    function toggleUserPermissionFlag(key, checked) {
+      if (!isAdmin()) return;
+      store.permissions[key] = checked;
+      persistRbacSettingsToCloud();
+    }
+
+    function saveUserPermissionsFromUI() {
+      if (!isAdmin()) return;
+      store.permissions.allowedOem = document.getElementById('permUserAllowedOem').value;
+      persistRbacSettingsToCloud();
+    }
+
+    function toggleUserColumnVisibility(colKey, isVisible) {
+      if (!isAdmin()) return;
+      const hidden = new Set(store.permissions.hiddenColumnsForUser || []);
+      if (isVisible) hidden.delete(colKey);
+      else hidden.add(colKey);
+      store.permissions.hiddenColumnsForUser = Array.from(hidden);
+      persistRbacSettingsToCloud();
+    }
+
+    // Admin Dynamic Columns Schema CRUD
+    function toggleNewColOptionsInput(typeVal) {
+      const optInput = document.getElementById('newColOptions');
+      optInput.disabled = typeVal !== 'dropdown';
+      optInput.classList.toggle('bg-slate-100', typeVal !== 'dropdown');
+      optInput.classList.toggle('bg-white', typeVal === 'dropdown');
+    }
+
+    async function handleAddCustomColumnSubmit(e) {
+      e.preventDefault();
+      if (!isAdmin()) return;
+      const label = document.getElementById('newColLabel').value.trim();
+      const type = document.getElementById('newColType').value;
+      const rawOpts = document.getElementById('newColOptions').value.trim();
+      if (!label) return;
+
+      const key = 'col_' + label.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + String(Date.now()).slice(-4);
+      const options = type === 'dropdown'
+        ? rawOpts.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      store.customColumns.push({ key, label, type, options, builtin: false });
+      document.getElementById('addCustomColumnForm').reset();
+      toggleNewColOptionsInput('text');
+
+      buildDynamicEntryFields();
+      buildDynamicCustomFilters();
+      renderAdminControlCenter();
+      await persistRbacSettingsToCloud();
+    }
+
+    function openEditColumnModal(colKey) {
+      const col = store.customColumns.find(c => c.key === colKey);
+      if (!col) return;
+      document.getElementById('editColKey').value = col.key;
+      document.getElementById('editColLabelInput').value = col.label;
+      document.getElementById('editColTypeSelect').value = col.type;
+      document.getElementById('editColOptionsInput').value = (col.options || []).join(', ');
+
+      const modal = document.getElementById('editColumnModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeEditColumnModal() {
+      const modal = document.getElementById('editColumnModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function handleEditColumnSubmit(e) {
+      e.preventDefault();
+      const key = document.getElementById('editColKey').value;
+      const label = document.getElementById('editColLabelInput').value.trim();
+      const type = document.getElementById('editColTypeSelect').value;
+      const options = type === 'dropdown'
+        ? document.getElementById('editColOptionsInput').value.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      store.customColumns = store.customColumns.map(c => c.key === key ? { ...c, label, type, options } : c);
+      closeEditColumnModal();
+      buildDynamicEntryFields();
+      buildDynamicCustomFilters();
+      renderAdminControlCenter();
+      await persistRbacSettingsToCloud();
+    }
+
+    async function deleteCustomColumn(colKey) {
+      if (!isAdmin()) return;
+      store.customColumns = store.customColumns.filter(c => c.key !== colKey);
+      store.permissions.hiddenColumnsForUser = (store.permissions.hiddenColumnsForUser || []).filter(k => k !== colKey);
+      buildDynamicEntryFields();
+      buildDynamicCustomFilters();
+      renderAdminControlCenter();
+      await persistRbacSettingsToCloud();
+      showToast('Custom column deleted.', 'slate');
+    }
+
+    /**
+     * ============================================================================
+     * 12. ISSUE DROPDOWN MANAGER (ADD / EDIT / DELETE)
+     * ============================================================================
+     */
+    function refreshIssueDropdowns() {
+      const cats = store.categories;
+      const entrySel = document.getElementById('issueCategory');
+      const editSel = document.getElementById('editIssueCategory');
+      const filterSel = document.getElementById('globalIssueFilter');
+
+      const prevEntry = entrySel?.value;
+      const prevFilter = filterSel?.value;
+
+      if (entrySel) entrySel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if (editSel) editSel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if (filterSel) filterSel.innerHTML = `<option value="ALL">All Issue Categories</option>` + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+      if (cats.includes(prevEntry)) entrySel.value = prevEntry;
+      if (cats.includes(prevFilter)) filterSel.value = prevFilter;
+    }
+
+    function openIssueManagerModal() {
+      if (!isAdmin()) return;
+      renderIssueCategoryManagerList();
+      const modal = document.getElementById('issueManagerModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeIssueManagerModal() {
+      const modal = document.getElementById('issueManagerModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderIssueCategoryManagerList() {
+      document.getElementById('issueCategoriesList').innerHTML = store.categories.map((cat, idx) => `
+        <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 bg-white">
+          <input type="text" id="catEditInput_${idx}" value="${escapeHtml(cat)}" class="flex-1 text-xs sm:text-sm font-semibold text-slate-800 border-b border-transparent focus:border-indigo-500 focus:outline-none px-1 py-0.5" />
+          <div class="flex items-center gap-1.5">
+            <button type="button" onclick="window.updateIssueCategoryName(${idx})" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">Save</button>
+            <button type="button" onclick="window.removeIssueCategory(${idx})" class="p-1 text-slate-400 hover:text-rose-600" title="Delete">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function syncCategoriesToFirestore() {
+      try {
+        const batch = writeBatch(db);
+        store.categories.forEach((name, idx) => batch.set(doc(db, "issue_categories", 'cat_' + idx), { name, order: idx }));
+        await batch.commit();
+      } catch (e) {}
+    }
+
+    async function handleAddIssueCategory(e) {
+      e.preventDefault();
+      if (!isAdmin()) return;
+      const input = document.getElementById('newIssueCategoryInput');
+      const val = input.value.trim();
+      if (!val) return;
+      if (store.categories.some(c => c.toLowerCase() === val.toLowerCase())) {
+        return showToast('Issue already exists.', 'amber');
+      }
+      store.categories.unshift(val);
+      saveLocalCache();
+      input.value = '';
+      refreshIssueDropdowns();
+      document.getElementById('issueCategory').value = val;
+      renderIssueCategoryManagerList();
+      renderActiveWorkspace();
+      await syncCategoriesToFirestore();
+      showToast(`Added "${val}" to dropdown`, 'emerald');
+    }
+
+    async function updateIssueCategoryName(idx) {
+      if (!isAdmin()) return;
+      const oldName = store.categories[idx];
+      const newName = document.getElementById(`catEditInput_${idx}`).value.trim();
+      if (!newName || newName === oldName) return;
+
+      store.categories[idx] = newName;
+      const impacted = [];
+      store.records = store.records.map(r => {
+        if (r.issue === oldName) {
+          const upd = { ...r, issue: newName };
+          impacted.push(upd);
+          return upd;
+        }
+        return r;
+      });
+      saveLocalCache();
+      refreshIssueDropdowns();
+      renderIssueCategoryManagerList();
+      renderActiveWorkspace();
+
+      await syncCategoriesToFirestore();
+      try {
+        const batch = writeBatch(db);
+        impacted.forEach(r => batch.set(doc(db, "battery_logs", r.id), r));
+        await batch.commit();
+      } catch (e) {}
+      showToast(`Renamed issue to "${newName}"`, 'blue');
+    }
+
+    async function removeIssueCategory(idx) {
+      if (!isAdmin() || store.categories.length <= 1) return;
+      const lastIdx = store.categories.length - 1;
+      store.categories.splice(idx, 1);
+      saveLocalCache();
+      refreshIssueDropdowns();
+      if (!document.getElementById('issueManagerModal').classList.contains('hidden')) renderIssueCategoryManagerList();
+      renderActiveWorkspace();
+      await syncCategoriesToFirestore();
+      try { await deleteDoc(doc(db, "issue_categories", 'cat_' + lastIdx)); } catch (e) {}
+      showToast('Issue option deleted.', 'slate');
+    }
+
+    async function restoreSampleData() {
+      if (!isAdmin()) return;
+      store.records = generateSeedRecords();
+      saveLocalCache();
+      appState.matrixEndMonth = '2026-11';
+      syncMatrixMonthOptions();
+      buildPeriodSubSelector();
+      renderActiveWorkspace();
+      await syncAllStateToFirebase();
+    }
+
+    /**
+     * ============================================================================
+     * 13. EXPORT, SHARE SUMMARY & CHART PNG/PRINT UTILITIES
+     * ============================================================================
+     */
+    function downloadChartPNG(canvasId, prefix) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const exp = document.createElement('canvas');
+      exp.width = canvas.width;
+      exp.height = canvas.height;
+      const ctx = exp.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, exp.width, exp.height);
+      ctx.drawImage(canvas, 0, 0);
+
+      const a = document.createElement('a');
+      a.download = `${prefix}_${getLocalDateString()}.png`;
+      a.href = exp.toDataURL('image/png', 1.0);
+      a.click();
+      showToast('Chart downloaded as PNG.', 'emerald');
+    }
+
+    function printSpecificSection(sectionId) {
+      document.getElementById('printHeaderMeta').textContent = `OEM: ${appState.oemFilter} | Mode: ${appState.reportMode.toUpperCase()}`;
+      document.getElementById('printDateStamp').textContent = new Date().toLocaleString('en-IN');
+
+      document.body.classList.add('print-target-active');
+      const el = document.getElementById(sectionId);
+      if (el) el.classList.add('print-selected');
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('print-target-active');
+        if (el) el.classList.remove('print-selected');
+      }, 300);
+    }
+
+    function printFullDashboard() {
+      document.getElementById('printHeaderMeta').textContent = `OEM: ${appState.oemFilter} | Mode: ${appState.reportMode.toUpperCase()}`;
+      document.getElementById('printDateStamp').textContent = new Date().toLocaleString('en-IN');
+      document.body.classList.remove('print-target-active');
+      window.print();
+    }
+
+    function exportMatrixCSV() {
+      const table = document.getElementById('executiveMatrixTable');
+      const wb = XLSX.utils.table_to_book(table, { sheet: 'OEM_3Month_Matrix' });
+      XLSX.writeFile(wb, `Mooving_OEM_Matrix_${appState.oemFilter}_${appState.matrixEndMonth}.xlsx`);
+      showToast('3-Month Matrix exported to Excel.', 'emerald');
+    }
+
+    function exportFullExcel() {
+      const wb = XLSX.utils.book_new();
+      const wsMatrix = XLSX.utils.table_to_sheet(document.getElementById('executiveMatrixTable'));
+      XLSX.utils.book_append_sheet(wb, wsMatrix, 'OEM_3Month_Summary');
+
+      const visibleCols = getVisibleColumnsForCurrentUser();
+      const rows = getFilteredRecords().map((r, i) => {
+        const obj = { 'Sr No': i + 1 };
+        visibleCols.forEach(c => { obj[c.label] = r[c.key] || ''; });
+        return obj;
+      });
+      const wsLogs = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, wsLogs, 'Battery_Logs');
+
+      XLSX.writeFile(wb, `Mooving_QC_Report_${getLocalDateString()}.xlsx`);
+      showToast('Excel report downloaded.', 'emerald');
+    }
+
+    function openShareSummaryModal() {
+      const filtered = getFilteredRecords();
+      const counts = {};
+      filtered.forEach(r => counts[r.issue] = (counts[r.issue] || 0) + 1);
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+      const lines = sorted.map(([name, cnt], idx) => {
+        const pct = filtered.length ? Math.round((cnt / filtered.length) * 100) : 0;
+        return `${idx + 1}. ${name}: ${cnt} (${pct}%)`;
+      }).join('\n');
+
+      const report = [
+        `📊 *MOOVING — BATTERY QUALITY & OEM REPORT*`,
+        `🏭 *OEM Scope:* ${appState.oemFilter === 'ALL' ? 'All OEMs (Inverted / Livguard / Trontek)' : appState.oemFilter}`,
+        `📅 *Report Filter:* ${appState.reportMode.toUpperCase()}`,
+        `──────────────────────────────`,
+        `• *Total Reported Units:* ${filtered.length}`,
+        `• *Inverted (INC):* ${filtered.filter(r => r.oem === 'Inverted').length} | *Livguard (ML):* ${filtered.filter(r => r.oem === 'Livguard').length} | *Trontek (TK):* ${filtered.filter(r => r.oem === 'Trontek').length}`,
+        ``,
+        `🔍 *ISSUE BREAKDOWN:*`,
+        lines || '• No issues logged in this filter.',
+        `──────────────────────────────`,
+        `Synced via Firebase Portal (product-ca806)`
+      ].join('\n');
+
+      document.getElementById('shareSummaryText').value = report;
+      const modal = document.getElementById('shareSummaryModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeShareSummaryModal() {
+      const modal = document.getElementById('shareSummaryModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function copySummaryText() {
+      const ta = document.getElementById('shareSummaryText');
+      ta.select();
+      ta.setSelectionRange(0, 99999);
+      document.execCommand('copy');
+      showToast('Summary copied to clipboard!', 'emerald');
+    }
+
+    function openFirebaseGuideModal() {
+      const modal = document.getElementById('firebaseGuideModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeFirebaseGuideModal() {
+      const modal = document.getElementById('firebaseGuideModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    /**
+     * ============================================================================
+     * 14. INITIALIZATION & EVENT LISTENERS
+     * ============================================================================
+     */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(str) {
+      return String(str || '').replace(/'/g, "\\'");
+    }
+
+    function showToast(msg, tone = 'slate') {
+      const container = document.getElementById('toastContainer');
+      const map = {
+        emerald: 'bg-emerald-600 text-white',
+        blue: 'bg-indigo-600 text-white',
+        amber: 'bg-amber-500 text-slate-950',
+        rose: 'bg-rose-600 text-white',
+        slate: 'bg-slate-900 text-white'
+      };
+      const el = document.createElement('div');
+      el.className = `${map[tone] || map.slate} px-4 py-2.5 rounded-xl shadow-lg text-xs sm:text-sm font-bold transition-all duration-300 translate-y-2 opacity-0`;
+      el.textContent = msg;
+      container.appendChild(el);
+      requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 2800);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadLocalCache();
+      startFirestoreListeners();
+
+      // Login Form
+      document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+
+      // Entry Form Live Auto-OEM & Auto-Month Listeners
+      document.getElementById('batterySrNo').addEventListener('input', (e) => {
+        const val = e.target.value.trim().toUpperCase();
+        if (!document.getElementById('entryDate').value) resetDateToToday();
+        const detected = detectOemFromSrNo(val);
+        document.getElementById('oemMakeSelect').value = detected;
+        const badge = document.getElementById('liveOemDetectionTag');
+        badge.textContent = val ? `Detected: ${detected}` : 'Auto OEM';
+        badge.className = !val
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500'
+          : detected === 'Inverted'
+            ? 'text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-900'
+            : detected === 'Livguard'
+              ? 'text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900'
+              : 'text-[10px] font-extrabold px-2 py-0.5 rounded bg-blue-100 text-blue-900';
+      });
+
+      document.getElementById('entryDate').addEventListener('change', (e) => {
+        document.getElementById('entryMonthDisplay').value = formatMonthLabel(e.target.value);
+      });
+      document.getElementById('editEntryDate').addEventListener('change', (e) => {
+        document.getElementById('editEntryMonth').value = formatMonthLabel(e.target.value);
+      });
+      document.getElementById('editBatterySrNo').addEventListener('input', (e) => {
+        document.getElementById('editOemMake').value = detectOemFromSrNo(e.target.value);
+      });
+
+      document.getElementById('batteryEntryForm').addEventListener('submit', handleAddRecord);
+      document.getElementById('addIssueCategoryForm').addEventListener('submit', handleAddIssueCategory);
+      document.getElementById('editRecordForm').addEventListener('submit', handleEditRecordSubmit);
+      document.getElementById('createUserForm').addEventListener('submit', handleCreateUserSubmit);
+      document.getElementById('addCustomColumnForm').addEventListener('submit', handleAddCustomColumnSubmit);
+      document.getElementById('editColumnForm').addEventListener('submit', handleEditColumnSubmit);
+
+      // Resume existing login session if present
+      if (store.currentUser) {
+        enterAuthenticatedPortal();
+      }
+    });
+
+    // Global Window Exports for Inline HTML Handlers
+    Object.assign(window, {
+      appState,
+      quickDemoLogin,
+      logoutUser,
+      switchWorkspaceTab,
+      renderActiveWorkspace,
+      renderDeepAnalytics,
+      setGlobalOemFilter,
+      setReportMode,
+      setCustomColFilter,
+      resetAllFilters,
+      onMatrixWindowChange,
+      saveMatrixInlineMeta,
+      resetDateToToday,
+      handleBulkFileUpload,
+      parsePastedText,
+      confirmBulkImport,
+      downloadSampleTemplate,
+      openEditRecordModal,
+      closeEditRecordModal,
+      deleteRecord,
+      openIssueManagerModal,
+      closeIssueManagerModal,
+      updateIssueCategoryName,
+      removeIssueCategory,
+      toggleUserRole,
+      deletePortalUser,
+      toggleUserPermissionFlag,
+      saveUserPermissionsFromUI,
+      toggleUserColumnVisibility,
+      toggleNewColOptionsInput,
+      openEditColumnModal,
+      closeEditColumnModal,
+      deleteCustomColumn,
+      restoreSampleData,
+      syncAllStateToFirebase,
+      downloadChartPNG,
+      printSpecificSection,
+      printFullDashboard,
+      exportMatrixCSV,
+      exportFullExcel,
+      openShareSummaryModal,
+      closeShareSummaryModal,
+      copySummaryText,
+      openFirebaseGuideModal,
+      closeFirebaseGuideModal
+    });
+  </script>
+</body>
+</html>
